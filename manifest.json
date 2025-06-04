@@ -29,8 +29,8 @@
   "commands": {
     "start_capture": {
       "suggested_key": {
-        "default": "Ctrl+Shift+Q",
-        "mac": "Command+Shift+Q"
+        "default": "Ctrl+Shift+X",
+        "mac": "Command+Shift+X"
       },
       "description": "Start screenshot capture"
     }
