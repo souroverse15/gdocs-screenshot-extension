@@ -6,7 +6,7 @@ A Chrome extension that allows you to capture screenshots and insert them direct
 
 - 📸 **Screenshot Capture**: Select any area on your screen to capture
 - 🎯 **Multiple Document Support**: Add and manage multiple Google Docs
-- ⌨️ **Keyboard Shortcut**: Quick capture with `Ctrl+Shift+S` (Windows/Linux) or `Command+Shift+S` (Mac)
+- ⌨️ **Keyboard Shortcut**: Quick capture with `Ctrl+Shift+Q` (Windows/Linux) or `Command+Shift+Q` (Mac)
 - 🎨 **Floating Toolbar**: Clean, contextual UI that appears next to your selection
 - 📝 **Notes Support**: Add optional notes to your screenshots
 - 🧠 **Memory Function**: Remembers your previous usage (selected docs + notes)
@@ -127,7 +127,7 @@ The extension uses a public Imgur client ID. For production use, consider:
 
 #### Method 2: Keyboard Shortcut
 
-1. Press `Ctrl+Shift+S` (Windows/Linux) or `Command+Shift+S` (Mac)
+1. Press `Ctrl+Shift+Q` (Windows/Linux) or `Command+Shift+Q` (Mac)
 2. Select the area you want to capture
 3. Choose target documents and add notes in the floating toolbar
 4. Click "Upload"
@@ -236,6 +236,26 @@ MIT License - feel free to use and modify as needed.
   - Make sure your shortcut doesn't conflict with browser shortcuts
 - **Images too large in docs**: Modify `MAX_WIDTH_PT` in the Apps Script code
 - **Permission denied errors**: Redeploy the Apps Script and re-grant permissions
+
+### Windows-Specific Issues
+
+**Windows Display Scaling Problems:**
+
+- If screenshots appear cropped incorrectly on Windows (especially with 125%, 150%, or 200% display scaling):
+  - The extension now automatically detects Windows and adjusts for DPI scaling
+  - If issues persist, try setting your display scaling to 100% temporarily
+  - Check that Chrome zoom level is at 100% (Ctrl+0)
+
+**Windows Keyboard Shortcut Conflicts:**
+
+- Default shortcut changed to `Ctrl+Shift+Q` to avoid Windows conflicts
+- If still conflicts occur, customize the shortcut in `chrome://extensions/shortcuts`
+- Avoid shortcuts that conflict with Windows system shortcuts
+
+**Windows Performance:**
+
+- Extension includes a small delay on Windows for better DOM readiness
+- If capture seems slow, this is intentional to ensure reliability
 
 ### Debug Mode
 

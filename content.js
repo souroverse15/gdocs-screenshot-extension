@@ -56,8 +56,16 @@ function getLastUsage(cb) {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "START_CAPTURE" || msg.type === "START_CAPTURE_KEY") {
-    makeOverlay();
-    sendResponse();
+    // Small delay for Windows to ensure DOM is ready
+    const isWindows = navigator.platform.toLowerCase().includes("win");
+    const delay = isWindows ? 100 : 0;
+
+    setTimeout(() => {
+      makeOverlay();
+      sendResponse();
+    }, delay);
+
+    return true; // Keep message channel open for async response
   }
 });
 
@@ -193,24 +201,51 @@ function captureAndCrop(box, note, targets) {
         return;
       }
 
-      // 🎞️ Crop
+      // 🎞️ Crop with Windows DPI fix
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
         canvas.width = box.width;
         canvas.height = box.height;
         const ctx = canvas.getContext("2d");
+
+        // Fix for Windows DPI scaling issues
+        const pixelRatio = window.devicePixelRatio || 1;
+        const isWindows = navigator.platform.toLowerCase().includes("win");
+
+        // Windows often has DPI scaling issues, use different approach
+        let sourceX, sourceY, sourceWidth, sourceHeight;
+
+        if (isWindows && pixelRatio !== 1) {
+          // Windows with scaling: use zoom-adjusted coordinates
+          const zoomFactor = window.visualViewport
+            ? window.visualViewport.scale || 1
+            : 1;
+
+          sourceX = (box.left * pixelRatio) / zoomFactor;
+          sourceY = (box.top * pixelRatio) / zoomFactor;
+          sourceWidth = (box.width * pixelRatio) / zoomFactor;
+          sourceHeight = (box.height * pixelRatio) / zoomFactor;
+        } else {
+          // Standard approach for Mac/Linux
+          sourceX = box.left * pixelRatio;
+          sourceY = box.top * pixelRatio;
+          sourceWidth = box.width * pixelRatio;
+          sourceHeight = box.height * pixelRatio;
+        }
+
         ctx.drawImage(
           img,
-          box.left * devicePixelRatio,
-          box.top * devicePixelRatio,
-          box.width * devicePixelRatio,
-          box.height * devicePixelRatio,
+          sourceX,
+          sourceY,
+          sourceWidth,
+          sourceHeight,
           0,
           0,
           box.width,
           box.height
         );
+
         const cropped = canvas.toDataURL("image/png");
         // Hand cropped image to background for upload & Docs insertion
         chrome.runtime.sendMessage(
