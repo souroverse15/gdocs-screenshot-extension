@@ -36,6 +36,24 @@ function fetchDocs(cb) {
   chrome.storage.sync.get({ docs: [] }, ({ docs }) => cb(docs));
 }
 
+// Function to save last usage settings
+function saveLastUsage(targets, note) {
+  chrome.storage.sync.set({
+    lastUsage: {
+      targets: targets,
+      note: note,
+    },
+  });
+}
+
+// Function to get last usage settings
+function getLastUsage(cb) {
+  chrome.storage.sync.get(
+    { lastUsage: { targets: [], note: "" } },
+    ({ lastUsage }) => cb(lastUsage)
+  );
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "START_CAPTURE" || msg.type === "START_CAPTURE_KEY") {
     makeOverlay();
@@ -102,23 +120,37 @@ function makeOverlay(noteDefault = "", targetsDefault = []) {
     toolbar.style.left = `${left}px`;
     toolbar.style.top = `${top}px`;
 
-    // populate check-boxes
-    fetchDocs((docs) => {
-      const boxContainer = toolbar.querySelector("#gd-doc-boxes");
-      docs.forEach((d, i) => {
-        const id = `gd-cb-${i}`;
-        boxContainer.insertAdjacentHTML(
-          "beforeend",
-          `<div><input type="checkbox" id="${id}" value="${d.docId}">
-            <label for="${id}">${d.label}</label></div>`
-        );
-        if (targetsDefault.includes(d.docId))
-          boxContainer.lastChild.firstChild.checked = true;
-      });
-    });
+    // Get last usage settings and populate toolbar
+    getLastUsage((lastUsage) => {
+      const previousTargets = lastUsage.targets || [];
+      const previousNote = lastUsage.note || "";
 
-    // default note if provided
-    toolbar.querySelector("#gd-note").value = noteDefault;
+      // populate check-boxes
+      fetchDocs((docs) => {
+        const boxContainer = toolbar.querySelector("#gd-doc-boxes");
+        docs.forEach((d, i) => {
+          const id = `gd-cb-${i}`;
+          boxContainer.insertAdjacentHTML(
+            "beforeend",
+            `<div><input type="checkbox" id="${id}" value="${d.docId}">
+              <label for="${id}">${d.label}</label></div>`
+          );
+
+          // Check if this doc was selected in previous usage
+          if (previousTargets.includes(d.docId)) {
+            boxContainer.lastChild.firstChild.checked = true;
+          }
+
+          // Also check any targets passed as parameters (for backward compatibility)
+          if (targetsDefault.includes(d.docId)) {
+            boxContainer.lastChild.firstChild.checked = true;
+          }
+        });
+      });
+
+      // Set note field with previous note (or parameter default)
+      toolbar.querySelector("#gd-note").value = noteDefault || previousNote;
+    });
 
     // Upload click
     toolbar.querySelector("#gd-upload").onclick = async () => {
@@ -130,6 +162,9 @@ function makeOverlay(noteDefault = "", targetsDefault = []) {
         alert("Select at least one Doc.");
         return;
       }
+
+      // Save current usage for next time
+      saveLastUsage(targets, note);
 
       toolbar.remove(); // hide UI
       overlay.remove();
