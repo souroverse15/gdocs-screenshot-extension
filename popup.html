@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Screenshot → Docs</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="popup">
+    <h3>Connected Docs</h3>
+
+    <!-- List of checkboxes will render here -->
+    <div id="doc-list"></div>
+
+    <h4>Add a Google Doc</h4>
+    <input id="doc-url" type="url" placeholder="Paste Google Doc URL" />
+    <input id="doc-name" type="text" placeholder="Label (e.g., Chapter 1)" />
+    <button id="add-doc">Add</button>
+
+    <hr />
+
+    <textarea id="note" rows="3" placeholder="Optional notes…"></textarea>
+    <button id="capture-btn">Capture & Upload</button>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
