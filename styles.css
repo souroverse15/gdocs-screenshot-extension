@@ -1,1 +1,303 @@
- 
+/* Modern popup styles for Google Docs Screenshot Extension */
+
+.popup {
+  width: 400px;
+  min-height: 500px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial,
+    sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  margin: 0;
+  padding: 0;
+  color: #2c3e50;
+}
+
+.popup-container {
+  padding: 20px;
+  background: white;
+  margin: 16px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.popup h3 {
+  margin: 0 0 16px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.popup h3::before {
+  content: "📄";
+  font-size: 18px;
+}
+
+.popup h4 {
+  margin: 24px 0 12px 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #34495e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.popup h4::before {
+  content: "➕";
+  font-size: 14px;
+}
+
+#doc-list {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 20px;
+  min-height: 120px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e9ecef;
+}
+
+#doc-list:empty::after {
+  content: "No documents added yet.\AAdd your first Google Doc below!";
+  white-space: pre;
+  color: #6c757d;
+  font-style: italic;
+  text-align: center;
+  display: block;
+  padding: 20px;
+  line-height: 1.5;
+}
+
+.doc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.doc-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #667eea;
+}
+
+.doc-row:last-child {
+  margin-bottom: 0;
+}
+
+.doc-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.doc-row label {
+  flex: 1;
+  cursor: pointer;
+  font-weight: 500;
+  color: #2c3e50;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.doc-row button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.doc-row button:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.popup input[type="url"],
+.popup input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.popup input[type="url"]:focus,
+.popup input[type="text"]:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.popup input[type="url"]::placeholder,
+.popup input[type="text"]::placeholder {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.popup textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  margin-bottom: 16px;
+  resize: vertical;
+  min-height: 80px;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.popup textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.popup textarea::placeholder {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.popup button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+}
+
+#add-doc {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  width: 100%;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+#add-doc:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+}
+
+#add-doc:active {
+  transform: translateY(0);
+}
+
+#capture-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  width: 100%;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 16px 20px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+#capture-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+#capture-btn:active {
+  transform: translateY(0);
+}
+
+.popup hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e9ecef, transparent);
+  margin: 24px 0;
+}
+
+/* Scrollbar styling */
+#doc-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#doc-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+#doc-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+#doc-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Animation for adding new docs */
+.doc-row {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading state */
+.button-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.button-loading::after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-left: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
