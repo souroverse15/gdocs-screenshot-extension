@@ -4,6 +4,17 @@ const IMGUR_CLIENT_ID = "32c4723d8ebca57";
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycby-c5wFql8yELI1IXu5p0rAdt7UyXAAd_4Np9jFdHhZ-jHrkwAOdQ_OTIHOe76J812E/exec";
 
+// Rate limiting and retry configuration
+const IMGUR_RATE_LIMIT = {
+  maxRetries: 3,
+  retryDelay: 2000, // 2 seconds
+  timeout: 30000, // 30 seconds
+  maxImageSize: 10 * 1024 * 1024, // 10MB limit
+};
+
+let imgurRetryCount = 0;
+let lastImgurRequest = 0;
+
 chrome.commands.onCommand.addListener((cmd) => {
   if (cmd === "start_capture") {
     try {
@@ -120,8 +131,18 @@ async function processImage({ dataUrl, note, targets }) {
 
     console.log(`Processing image for ${targets.length} target(s)`);
 
-    // 3-A) Upload the cropped screenshot to Imgur
-    const imgUrl = await uploadToImgur(dataUrl);
+    // Check image size before upload
+    const imageSizeBytes = estimateImageSize(dataUrl);
+    if (imageSizeBytes > IMGUR_RATE_LIMIT.maxImageSize) {
+      throw new Error(
+        `Image too large: ${Math.round(imageSizeBytes / 1024 / 1024)}MB. Max: ${
+          IMGUR_RATE_LIMIT.maxImageSize / 1024 / 1024
+        }MB`
+      );
+    }
+
+    // 3-A) Upload the cropped screenshot to Imgur with retry logic
+    const imgUrl = await uploadToImgurWithRetry(dataUrl);
     console.log("✅ Image uploaded to Imgur:", imgUrl);
 
     // 3-B) POST to Apps Script for each target Doc
@@ -146,8 +167,137 @@ async function processImage({ dataUrl, note, targets }) {
 
 /** 4. HELPERS  *******************************************************/
 
-// Upload base64 PNG to Imgur -> return public https://i.imgur.com/… link
+// Estimate image size from base64 data
+function estimateImageSize(dataUrl) {
+  try {
+    if (!dataUrl || !dataUrl.includes(",")) return 0;
+    const base64Data = dataUrl.split(",")[1];
+    if (!base64Data) return 0;
+
+    // Base64 encoding increases size by ~33%, so actual size is ~75% of base64 length
+    return Math.round(base64Data.length * 0.75);
+  } catch (error) {
+    console.warn("Could not estimate image size:", error);
+    return 0;
+  }
+}
+
+// Compress image if it's too large
+function compressImageIfNeeded(
+  dataUrl,
+  maxSizeBytes = IMGUR_RATE_LIMIT.maxImageSize
+) {
+  return new Promise((resolve) => {
+    try {
+      const estimatedSize = estimateImageSize(dataUrl);
+
+      if (estimatedSize <= maxSizeBytes) {
+        resolve(dataUrl);
+        return;
+      }
+
+      console.log(
+        `Image size (${Math.round(
+          estimatedSize / 1024
+        )}KB) exceeds limit, compressing...`
+      );
+
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          // Calculate compression ratio
+          const compressionRatio = Math.sqrt(maxSizeBytes / estimatedSize);
+          canvas.width = Math.floor(img.width * compressionRatio);
+          canvas.height = Math.floor(img.height * compressionRatio);
+
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // Try different quality levels
+          for (let quality = 0.8; quality > 0.1; quality -= 0.1) {
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+            if (estimateImageSize(compressedDataUrl) <= maxSizeBytes) {
+              console.log(
+                `Image compressed to ${Math.round(
+                  estimateImageSize(compressedDataUrl) / 1024
+                )}KB`
+              );
+              resolve(compressedDataUrl);
+              return;
+            }
+          }
+
+          // If still too large, use lowest quality
+          resolve(canvas.toDataURL("image/jpeg", 0.1));
+        } catch (error) {
+          console.error("Image compression failed:", error);
+          resolve(dataUrl); // Return original if compression fails
+        }
+      };
+
+      img.onerror = () => {
+        console.error("Could not load image for compression");
+        resolve(dataUrl);
+      };
+
+      img.src = dataUrl;
+    } catch (error) {
+      console.error("Error in image compression:", error);
+      resolve(dataUrl);
+    }
+  });
+}
+
+// Upload to Imgur with retry logic and rate limiting
+async function uploadToImgurWithRetry(dataUrl, retryCount = 0) {
+  try {
+    // Rate limiting: enforce minimum delay between requests
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastImgurRequest;
+    const minDelay = 1000; // 1 second minimum between requests
+
+    if (timeSinceLastRequest < minDelay) {
+      const waitTime = minDelay - timeSinceLastRequest;
+      console.log(`Rate limiting: waiting ${waitTime}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+
+    lastImgurRequest = Date.now();
+
+    // Compress image if needed
+    const processedDataUrl = await compressImageIfNeeded(dataUrl);
+
+    return await uploadToImgur(processedDataUrl);
+  } catch (error) {
+    console.error(`Imgur upload attempt ${retryCount + 1} failed:`, error);
+
+    // Check if we should retry
+    if (retryCount < IMGUR_RATE_LIMIT.maxRetries) {
+      // Exponential backoff for retries
+      const delay = IMGUR_RATE_LIMIT.retryDelay * Math.pow(2, retryCount);
+      console.log(
+        `Retrying in ${delay}ms... (attempt ${retryCount + 1}/${
+          IMGUR_RATE_LIMIT.maxRetries
+        })`
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return uploadToImgurWithRetry(dataUrl, retryCount + 1);
+    }
+
+    // All retries exhausted
+    throw new Error(
+      `Imgur upload failed after ${IMGUR_RATE_LIMIT.maxRetries} attempts: ${error.message}`
+    );
+  }
+}
+
+// Upload base64 PNG to Imgur with timeout handling
 async function uploadToImgur(dataUrl) {
+  let controller;
+
   try {
     if (!dataUrl || !dataUrl.includes(",")) {
       throw new Error("Invalid data URL format");
@@ -158,7 +308,20 @@ async function uploadToImgur(dataUrl) {
       throw new Error("No base64 data found in data URL");
     }
 
-    console.log("Uploading to Imgur...");
+    // Check for empty or corrupted base64 data
+    if (base64Data.length < 100) {
+      throw new Error("Base64 data appears to be corrupted or too small");
+    }
+
+    console.log(
+      `Uploading to Imgur... (${Math.round(base64Data.length / 1024)}KB)`
+    );
+
+    // Create AbortController for timeout handling
+    controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, IMGUR_RATE_LIMIT.timeout);
 
     const res = await fetch("https://api.imgur.com/3/image", {
       method: "POST",
@@ -169,35 +332,80 @@ async function uploadToImgur(dataUrl) {
       body: new URLSearchParams({
         image: base64Data,
         type: "base64",
+        title: "Screenshot from GDocs Extension",
+        description: "Automatically uploaded screenshot",
       }),
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
+
     if (!res.ok) {
-      const errorText = await res.text();
+      let errorText;
+      try {
+        errorText = await res.text();
+      } catch (e) {
+        errorText = "Could not read error response";
+      }
+
+      // Handle specific Imgur error codes
+      if (res.status === 429) {
+        throw new Error(
+          "Imgur rate limit exceeded. Please wait before uploading again."
+        );
+      } else if (res.status === 413) {
+        throw new Error("Image too large for Imgur");
+      } else if (res.status >= 500) {
+        throw new Error(
+          `Imgur server error (${res.status}). Please try again later.`
+        );
+      }
+
       throw new Error(`Imgur API error ${res.status}: ${errorText}`);
     }
 
     const json = await res.json();
 
     if (!json.success) {
-      throw new Error(
-        `Imgur upload failed: ${json.data?.error || "Unknown error"}`
-      );
+      const errorMsg =
+        json.data?.error?.message || json.data?.error || "Unknown error";
+      throw new Error(`Imgur upload failed: ${errorMsg}`);
     }
 
     if (!json.data?.link) {
       throw new Error("Imgur response missing image link");
     }
 
-    return json.data.link; // ⇒ publicly accessible URL
+    console.log(`✅ Imgur upload successful: ${json.data.link}`);
+    return json.data.link;
   } catch (error) {
+    if (controller) {
+      controller.abort(); // Cleanup on error
+    }
+
+    if (error.name === "AbortError") {
+      throw new Error(
+        `Imgur upload timed out after ${
+          IMGUR_RATE_LIMIT.timeout / 1000
+        } seconds`
+      );
+    }
+
+    if (error.message.includes("Failed to fetch")) {
+      throw new Error(
+        "Network error: Could not connect to Imgur. Check your internet connection."
+      );
+    }
+
     console.error("Imgur upload error:", error);
-    throw new Error(`Imgur upload failed: ${error.message}`);
+    throw error;
   }
 }
 
 // Send image-URL + note to your Apps Script (which appends to Doc)
 async function postToAppsScript({ docId, imgUrl, note }) {
+  let controller;
+
   try {
     if (!docId) {
       throw new Error("Document ID is required");
@@ -208,6 +416,12 @@ async function postToAppsScript({ docId, imgUrl, note }) {
 
     console.log(`Posting to Apps Script for doc: ${docId}`);
 
+    // Create AbortController for timeout handling
+    controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 30000); // 30 second timeout for Apps Script
+
     const res = await fetch(APPS_SCRIPT_URL, {
       method: "POST",
       headers: {
@@ -215,10 +429,18 @@ async function postToAppsScript({ docId, imgUrl, note }) {
         Accept: "application/json",
       },
       body: JSON.stringify({ docId, imgUrl, note: note || "" }),
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
+
     if (!res.ok) {
-      const errorText = await res.text();
+      let errorText;
+      try {
+        errorText = await res.text();
+      } catch (e) {
+        errorText = "Could not read error response";
+      }
       throw new Error(`Apps Script HTTP ${res.status}: ${errorText}`);
     }
 
@@ -231,6 +453,14 @@ async function postToAppsScript({ docId, imgUrl, note }) {
 
     return responseText;
   } catch (error) {
+    if (controller) {
+      controller.abort(); // Cleanup on error
+    }
+
+    if (error.name === "AbortError") {
+      throw new Error("Apps Script request timed out after 30 seconds");
+    }
+
     console.error("Apps Script error:", error);
     throw new Error(`Apps Script failed: ${error.message}`);
   }
@@ -239,9 +469,29 @@ async function postToAppsScript({ docId, imgUrl, note }) {
 // Global error handler
 chrome.runtime.onInstalled.addListener(() => {
   console.log("GDocs Screenshot Extension installed/updated");
+  // Reset rate limiting on install/update
+  imgurRetryCount = 0;
+  lastImgurRequest = 0;
 });
 
 // Handle extension startup
 chrome.runtime.onStartup.addListener(() => {
   console.log("GDocs Screenshot Extension started");
+  // Reset rate limiting on startup
+  imgurRetryCount = 0;
+  lastImgurRequest = 0;
 });
+
+// Handle extension suspension/wake
+chrome.runtime.onSuspend.addListener(() => {
+  console.log("Extension suspending - cleaning up resources");
+});
+
+// Memory cleanup - periodically reset counters
+setInterval(() => {
+  if (Date.now() - lastImgurRequest > 300000) {
+    // 5 minutes
+    imgurRetryCount = 0;
+    console.log("Reset Imgur rate limiting counters due to inactivity");
+  }
+}, 60000); // Check every minute

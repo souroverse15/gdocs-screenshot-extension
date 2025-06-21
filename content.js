@@ -571,6 +571,23 @@ async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
 function captureAndCrop(box, note, targets) {
   return new Promise((resolve, reject) => {
     try {
+      // Validate bounding box
+      if (!box || box.width <= 0 || box.height <= 0) {
+        reject(new Error("Invalid selection area"));
+        return;
+      }
+
+      // Check for reasonable image dimensions to prevent memory issues
+      const maxDimension = 8192; // 8K max
+      if (box.width > maxDimension || box.height > maxDimension) {
+        reject(
+          new Error(
+            `Selection too large: ${box.width}x${box.height}. Max: ${maxDimension}x${maxDimension}`
+          )
+        );
+        return;
+      }
+
       chrome.runtime.sendMessage({ type: "CAPTURE_VISIBLE" }, (dataUrl) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
@@ -582,14 +599,30 @@ function captureAndCrop(box, note, targets) {
           return;
         }
 
+        // Check data URL size to prevent memory issues
+        if (dataUrl.length > 50 * 1024 * 1024) {
+          // 50MB limit for raw data URL
+          reject(
+            new Error(
+              "Screenshot data too large. Try a smaller selection area."
+            )
+          );
+          return;
+        }
+
         // 🎞️ Crop with Windows DPI fix
         const img = new Image();
         img.onload = () => {
+          let canvas, ctx;
           try {
-            const canvas = document.createElement("canvas");
+            canvas = document.createElement("canvas");
             canvas.width = box.width;
             canvas.height = box.height;
-            const ctx = canvas.getContext("2d");
+            ctx = canvas.getContext("2d");
+
+            if (!ctx) {
+              throw new Error("Could not get canvas context");
+            }
 
             // Fix for Windows DPI scaling issues
             const pixelRatio = window.devicePixelRatio || 1;
@@ -616,6 +649,16 @@ function captureAndCrop(box, note, targets) {
               sourceHeight = box.height * pixelRatio;
             }
 
+            // Validate coordinates
+            if (
+              sourceX < 0 ||
+              sourceY < 0 ||
+              sourceWidth <= 0 ||
+              sourceHeight <= 0
+            ) {
+              throw new Error("Invalid crop coordinates calculated");
+            }
+
             ctx.drawImage(
               img,
               sourceX,
@@ -629,18 +672,40 @@ function captureAndCrop(box, note, targets) {
             );
 
             const cropped = canvas.toDataURL("image/png");
+
+            // Check cropped image size
+            if (cropped.length > 20 * 1024 * 1024) {
+              // 20MB limit for cropped image
+              console.warn(
+                "Cropped image is very large, this may cause upload issues"
+              );
+            }
+
+            // Clean up canvas to free memory
+            canvas.width = 0;
+            canvas.height = 0;
+            canvas = null;
+            ctx = null;
+
             // Hand cropped image to background for upload & Docs insertion
             chrome.runtime.sendMessage(
               { type: "PROCESS_IMAGE", note, targets, dataUrl: cropped },
               (response) => {
                 if (chrome.runtime.lastError) {
                   reject(new Error(chrome.runtime.lastError.message));
+                } else if (response && response.error) {
+                  reject(new Error(response.error));
                 } else {
                   resolve(response);
                 }
               }
             );
           } catch (error) {
+            // Clean up on error
+            if (canvas) {
+              canvas.width = 0;
+              canvas.height = 0;
+            }
             reject(error);
           }
         };
@@ -648,6 +713,27 @@ function captureAndCrop(box, note, targets) {
         img.onerror = () => {
           reject(new Error("Failed to load captured image"));
         };
+
+        // Set timeout for image loading
+        const imageLoadTimeout = setTimeout(() => {
+          img.onload = null;
+          img.onerror = null;
+          reject(new Error("Image loading timed out"));
+        }, 10000); // 10 second timeout
+
+        img.onload = ((originalOnLoad) => {
+          return function () {
+            clearTimeout(imageLoadTimeout);
+            return originalOnLoad.apply(this, arguments);
+          };
+        })(img.onload);
+
+        img.onerror = ((originalOnError) => {
+          return function () {
+            clearTimeout(imageLoadTimeout);
+            return originalOnError.apply(this, arguments);
+          };
+        })(img.onerror);
 
         img.src = dataUrl;
       });
