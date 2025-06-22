@@ -9,58 +9,57 @@ const TOOLBAR_HTML = `
     line-height: 1.4;
     background: #ffffff;
     border: 1px solid #e1e5e9;
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
-    min-width: 280px;
-    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 260px;
   ">
     <div style="
       font-weight: 600;
       color: #1a1a1a;
-      margin-bottom: 12px;
-      font-size: 16px;
+      margin-bottom: 10px;
+      font-size: 15px;
     ">📸 Screenshot Ready</div>
     
     <div id="gd-doc-boxes" style="
-      margin-bottom: 12px;
-      max-height: 120px;
+      margin-bottom: 10px;
+      max-height: 100px;
       overflow-y: auto;
-      border: 1px solid #f0f0f0;
-      border-radius: 8px;
-      padding: 8px;
+      border: 1px solid #e1e5e9;
+      border-radius: 6px;
+      padding: 6px;
       background: #fafafa;
     "></div>
     
     <div style="
-      margin-bottom: 12px;
-      padding: 8px 12px;
+      margin-bottom: 10px;
+      padding: 6px 8px;
       background: #f8f9ff;
       border: 1px solid #e1e5e9;
-      border-radius: 8px;
-      font-size: 13px;
+      border-radius: 6px;
+      font-size: 12px;
     ">
       <label style="
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         cursor: pointer;
         color: #333;
         font-weight: 500;
       ">
         <input type="checkbox" id="gd-use-base64" style="
           margin: 0;
-          transform: scale(1.1);
+          transform: scale(1.0);
         ">
-        <span>⚡ Use Base64 embedding (faster, no upload needed)</span>
+        <span>⚡ Use Base64 embedding (faster, no upload)</span>
       </label>
       <div style="
-        margin-top: 4px;
-        font-size: 12px;
+        margin-top: 2px;
+        font-size: 11px;
         color: #666;
-        margin-left: 24px;
+        margin-left: 18px;
       ">
-        Embeds image directly in document. Faster but makes docs larger.
+        Embeds directly in document. Faster but makes docs larger.
       </div>
     </div>
     
@@ -71,32 +70,32 @@ const TOOLBAR_HTML = `
         width: 100%;
         box-sizing: border-box;
         resize: vertical;
-        margin-bottom: 12px;
-        padding: 8px 12px;
+        margin-bottom: 10px;
+        padding: 6px 8px;
         border: 1px solid #e1e5e9;
-        border-radius: 8px;
+        border-radius: 6px;
         font-family: inherit;
-        font-size: 14px;
+        font-size: 13px;
         background: #ffffff;
         transition: border-color 0.2s ease;
       "
     ></textarea>
-    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+    <div style="display: flex; gap: 6px; justify-content: flex-end;">
       <button id="gd-cancel" style="
         display: flex;
         align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
+        gap: 4px;
+        padding: 6px 12px;
         border: 1px solid #e1e5e9;
-        border-radius: 8px;
+        border-radius: 6px;
         background: #ffffff;
         color: #666;
         font-family: inherit;
-        font-size: 14px;
+        font-size: 13px;
         cursor: pointer;
         transition: all 0.2s ease;
       ">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/>
           <line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -105,20 +104,19 @@ const TOOLBAR_HTML = `
       <button id="gd-upload" style="
         display: flex;
         align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
+        gap: 4px;
+        padding: 6px 12px;
         border: none;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 6px;
+        background: #4285f4;
         color: white;
         font-family: inherit;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.2s ease;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
       ">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7,10 12,15 17,10"/>
           <line x1="12" y1="15" x2="12" y2="3"/>
@@ -134,24 +132,23 @@ const TOAST_HTML = `
     top: 20px;
     right: 20px;
     z-index: 2147483649;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #4285f4;
     color: white;
-    padding: 12px 20px;
-    border-radius: 12px;
+    padding: 10px 16px;
+    border-radius: 8px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transform: translateX(100%);
     opacity: 0;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     align-items: center;
-    gap: 8px;
-    max-width: 300px;
+    gap: 6px;
+    max-width: 280px;
   ">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M20 6L9 17l-5-5"/>
     </svg>
     <span id="gd-toast-message">Screenshot uploaded successfully!</span>
@@ -593,12 +590,12 @@ async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
     const handleUploadMouseEnter = () => {
       if (uploadBtn.style.cursor !== "not-allowed") {
         uploadBtn.style.transform = "translateY(-1px)";
-        uploadBtn.style.boxShadow = "0 4px 12px rgba(102, 126, 234, 0.4)";
+        uploadBtn.style.background = "#3367d6";
       }
     };
     const handleUploadMouseLeave = () => {
       uploadBtn.style.transform = "translateY(0)";
-      uploadBtn.style.boxShadow = "0 2px 8px rgba(102, 126, 234, 0.3)";
+      uploadBtn.style.background = "#4285f4";
     };
 
     addTrackedEventListener(uploadBtn, "mouseenter", handleUploadMouseEnter);

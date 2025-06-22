@@ -6,7 +6,7 @@ A Chrome extension that allows you to capture screenshots and insert them direct
 
 - 📸 **Screenshot Capture**: Select any area on your screen to capture
 - 🎯 **Multiple Document Support**: Add and manage multiple Google Docs
-- ⌨️ **Keyboard Shortcut**: Quick capture with `Ctrl+Shift+X` (Windows/Linux) or `Command+Shift+X` (Mac)
+- ⌨️ **Keyboard Shortcut**: Quick capture with `Ctrl+Shift+S` (Windows/Linux) or `Command+Shift+S` (Mac)
 - 🎨 **Floating Toolbar**: Clean, contextual UI that appears next to your selection
 - 📝 **Notes Support**: Add optional notes to your screenshots
 - 🧠 **Memory Function**: Remembers your previous usage (selected docs + notes)
@@ -127,7 +127,7 @@ The extension uses a public Imgur client ID. For production use, consider:
 
 #### Method 2: Keyboard Shortcut
 
-1. Press `Ctrl+Shift+X` (Windows/Linux) or `Command+Shift+X` (Mac)
+1. Press `Ctrl+Shift+S` (Windows/Linux) or `Command+Shift+S` (Mac)
 2. Select the area you want to capture
 3. Choose target documents and add notes in the floating toolbar
 4. Click "Upload"
@@ -248,7 +248,7 @@ MIT License - feel free to use and modify as needed.
 
 **Windows Keyboard Shortcut Conflicts:**
 
-- Default shortcut changed to `Ctrl+Shift+X` to avoid Windows conflicts
+- Default shortcut changed to `Ctrl+Shift+S` to avoid Windows conflicts
 - If still conflicts occur, customize the shortcut in `chrome://extensions/shortcuts`
 - Avoid shortcuts that conflict with Windows system shortcuts
 

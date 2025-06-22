@@ -42,33 +42,47 @@ function showTooltip(element, message, duration = 2000) {
   }, duration);
 }
 
+function showStatus(message, isError = false) {
+  const status = document.getElementById("status");
+  status.textContent = message;
+  status.className = isError ? "status error" : "status success";
+  status.style.display = "block";
+
+  setTimeout(() => {
+    status.style.display = "none";
+  }, 3000);
+}
+
 function renderDocs(docs) {
-  const container = document.getElementById("doc-list");
+  const container = document.getElementById("docList");
+
+  if (docs.length === 0) {
+    container.innerHTML =
+      '<div class="empty-state">No documents added yet</div>';
+    return;
+  }
+
   container.innerHTML = ""; // clear
 
   docs.forEach((doc, i) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "doc-row";
+    const docItem = document.createElement("div");
+    docItem.className = "doc-item";
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.id = `doc-${i}`;
-    checkbox.value = doc.docId;
-
-    const label = document.createElement("label");
-    label.htmlFor = checkbox.id;
-    label.textContent = doc.label;
+    const docName = document.createElement("div");
+    docName.className = "doc-name";
+    docName.textContent = doc.label;
 
     const removeBtn = document.createElement("button");
-    removeBtn.textContent = "✕";
-    removeBtn.title = "Remove document";
+    removeBtn.className = "doc-remove";
+    removeBtn.textContent = "Remove";
     removeBtn.onclick = (e) => {
       e.preventDefault();
       removeDoc(doc.docId);
     };
 
-    wrapper.append(checkbox, label, removeBtn);
-    container.appendChild(wrapper);
+    docItem.appendChild(docName);
+    docItem.appendChild(removeBtn);
+    container.appendChild(docItem);
   });
 }
 
@@ -84,53 +98,33 @@ function saveDocs(docs, cb) {
 
 /* Add ----------------------------------------------------------------- */
 function addDoc() {
-  const urlInput = document.getElementById("doc-url");
-  const nameInput = document.getElementById("doc-name");
-  const addBtn = document.getElementById("add-doc");
+  const labelInput = document.getElementById("docLabel");
+  const idInput = document.getElementById("docId");
+  const addBtn = document.getElementById("addDoc");
 
-  const url = urlInput.value.trim();
-  const label = nameInput.value.trim() || "Untitled Document";
+  const label = labelInput.value.trim();
+  const docId = idInput.value.trim();
 
-  const docId = parseDocId(url);
-  if (!docId) {
-    urlInput.style.borderColor = "#dc3545";
-    urlInput.style.boxShadow = "0 0 0 3px rgba(220, 53, 69, 0.1)";
-    showTooltip(urlInput, "Please enter a valid Google Docs URL");
+  if (!label || !docId) {
+    showStatus("Please fill in both fields", true);
+    return;
+  }
 
-    // Reset border after 3 seconds
-    setTimeout(() => {
-      urlInput.style.borderColor = "#e9ecef";
-      urlInput.style.boxShadow = "none";
-    }, 3000);
+  // Simple validation for Google Doc ID (alphanumeric, dashes, underscores)
+  if (!/^[a-zA-Z0-9_-]+$/.test(docId)) {
+    showStatus("Invalid document ID format", true);
     return;
   }
 
   // Show loading state
-  addBtn.classList.add("button-loading");
   addBtn.textContent = "Adding...";
+  addBtn.disabled = true;
 
   getDocs((docs) => {
     if (docs.some((d) => d.docId === docId)) {
-      // Already exists
-      urlInput.style.borderColor = "#ffc107";
-      urlInput.style.boxShadow = "0 0 0 3px rgba(255, 193, 7, 0.1)";
-      showTooltip(urlInput, "This document is already added");
-
-      // Reset loading state
-      addBtn.classList.remove("button-loading");
-      addBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"/>
-          <line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        Add Document
-      `;
-
-      // Reset border after 3 seconds
-      setTimeout(() => {
-        urlInput.style.borderColor = "#e9ecef";
-        urlInput.style.boxShadow = "none";
-      }, 3000);
+      showStatus("This document is already added", true);
+      addBtn.textContent = "Add";
+      addBtn.disabled = false;
       return;
     }
 
@@ -139,30 +133,15 @@ function addDoc() {
       renderDocs(docs);
 
       // Clear inputs
-      urlInput.value = "";
-      nameInput.value = "";
+      labelInput.value = "";
+      idInput.value = "";
 
-      // Show success state
-      addBtn.style.background =
-        "linear-gradient(135deg, #28a745 0%, #20c997 100%)";
-      addBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 6L9 17l-5-5"/>
-        </svg>
-        Added!
-      `;
+      // Show success
+      showStatus(`Added "${label}" successfully!`);
 
-      // Reset after 2 seconds
-      setTimeout(() => {
-        addBtn.classList.remove("button-loading");
-        addBtn.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Add Document
-        `;
-      }, 2000);
+      // Reset button
+      addBtn.textContent = "Add";
+      addBtn.disabled = false;
     });
   });
 }
@@ -290,17 +269,26 @@ function setupInputEnhancements() {
 /* Init ---------------------------------------------------------------- */
 document.addEventListener("DOMContentLoaded", () => {
   // Setup event listeners
-  document.getElementById("add-doc").addEventListener("click", addDoc);
-  document
-    .getElementById("capture-btn")
-    .addEventListener("click", handleCapture);
+  document.getElementById("addDoc").addEventListener("click", addDoc);
 
-  // Setup input enhancements
-  setupInputEnhancements();
+  // Enter key handling for inputs
+  document.getElementById("docLabel").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.getElementById("docId").focus();
+    }
+  });
+
+  document.getElementById("docId").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addDoc();
+    }
+  });
 
   // Load and render docs
   getDocs(renderDocs);
 
   // Focus first input
-  document.getElementById("doc-url").focus();
+  document.getElementById("docLabel").focus();
 });

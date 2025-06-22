@@ -43,7 +43,7 @@
 
 ### Step 4: First Use
 
-1. **Take a screenshot** (Ctrl+Shift+X or Cmd+Shift+X)
+1. **Take a screenshot** (Ctrl+Shift+S or Cmd+Shift+S)
 2. **Click "Upload"** - you'll be prompted to sign in to Google
 3. **Grant permissions** for Google Drive access
 4. **Done!** Screenshots will now upload to Google Drive

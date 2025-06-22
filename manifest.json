@@ -31,10 +31,10 @@
   "commands": {
     "start_capture": {
       "suggested_key": {
-        "default": "Ctrl+Shift+X",
-        "mac": "Command+Shift+X"
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
       },
-      "description": "Start screenshot capture (chosen to avoid Windows conflicts)"
+      "description": "Start screenshot capture"
     }
   }
 }
