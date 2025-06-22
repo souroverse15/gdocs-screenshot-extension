@@ -136,34 +136,50 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 /** 3. MAIN PIPELINE  *************************************************/
 
-async function processImage({ dataUrl, note, targets }) {
+async function processImage({ dataUrl, note, targets, useBase64 }) {
   try {
     if (!dataUrl || !targets || targets.length === 0) {
       throw new Error("Missing required data for image processing");
     }
 
-    console.log(`Processing image for ${targets.length} target(s)`);
+    console.log(
+      `Processing image for ${targets.length} target(s)${
+        useBase64 ? " using Base64 embedding" : " via Google Drive"
+      }`
+    );
 
-    // Check image size before upload
-    const imageSizeBytes = estimateImageSize(dataUrl);
-    if (imageSizeBytes > UPLOAD_CONFIG.maxImageSize) {
-      throw new Error(
-        `Image too large: ${Math.round(imageSizeBytes / 1024 / 1024)}MB. Max: ${
-          UPLOAD_CONFIG.maxImageSize / 1024 / 1024
-        }MB`
-      );
+    let imgUrl;
+
+    if (useBase64) {
+      // For Base64 embedding, we send the data URL directly
+      imgUrl = dataUrl;
+      console.log("✅ Using Base64 embedding (no upload needed)");
+    } else {
+      // Check image size before upload
+      const imageSizeBytes = estimateImageSize(dataUrl);
+      if (imageSizeBytes > UPLOAD_CONFIG.maxImageSize) {
+        throw new Error(
+          `Image too large: ${Math.round(
+            imageSizeBytes / 1024 / 1024
+          )}MB. Max: ${UPLOAD_CONFIG.maxImageSize / 1024 / 1024}MB`
+        );
+      }
+
+      // Upload the cropped screenshot to Google Drive with retry logic
+      imgUrl = await uploadToGoogleDriveWithRetry(dataUrl);
+      console.log("✅ Image uploaded to Google Drive:", imgUrl);
     }
 
-    // 3-A) Upload the cropped screenshot to Google Drive with retry logic
-    const imgUrl = await uploadToGoogleDriveWithRetry(dataUrl);
-    console.log("✅ Image uploaded to Google Drive:", imgUrl);
-
-    // 3-B) POST to Apps Script for each target Doc
+    // POST to Apps Script for each target Doc
     const results = [];
     for (const docId of targets) {
       try {
-        await postToAppsScript({ docId, imgUrl, note });
-        console.log(`✅ Inserted into ${docId}`);
+        await postToAppsScript({ docId, imgUrl, note, useBase64 });
+        console.log(
+          `✅ Inserted into ${docId}${
+            useBase64 ? " (Base64)" : " (Google Drive)"
+          }`
+        );
         results.push({ docId, success: true });
       } catch (error) {
         console.error(`❌ Failed to insert into ${docId}:`, error);
@@ -453,7 +469,7 @@ async function makeFilePublic(token, fileId) {
 }
 
 // Send image-URL + note to your Apps Script (which appends to Doc)
-async function postToAppsScript({ docId, imgUrl, note }) {
+async function postToAppsScript({ docId, imgUrl, note, useBase64 }) {
   let controller;
 
   try {
@@ -478,7 +494,7 @@ async function postToAppsScript({ docId, imgUrl, note }) {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ docId, imgUrl, note: note || "" }),
+      body: JSON.stringify({ docId, imgUrl, note: note || "", useBase64 }),
       signal: controller.signal,
     });
 

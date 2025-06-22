@@ -32,6 +32,38 @@ const TOOLBAR_HTML = `
       background: #fafafa;
     "></div>
     
+    <div style="
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: #f8f9ff;
+      border: 1px solid #e1e5e9;
+      border-radius: 8px;
+      font-size: 13px;
+    ">
+      <label style="
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        color: #333;
+        font-weight: 500;
+      ">
+        <input type="checkbox" id="gd-use-base64" style="
+          margin: 0;
+          transform: scale(1.1);
+        ">
+        <span>⚡ Use Base64 embedding (faster, no upload needed)</span>
+      </label>
+      <div style="
+        margin-top: 4px;
+        font-size: 12px;
+        color: #666;
+        margin-left: 24px;
+      ">
+        Embeds image directly in document. Faster but makes docs larger.
+      </div>
+    </div>
+    
     <textarea id="gd-note"
       placeholder="Add a note (optional)..." 
       rows="2"
@@ -490,9 +522,12 @@ async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
     const uploadBtn = toolbar.querySelector("#gd-upload");
     const handleUploadClick = async () => {
       const note = toolbar.querySelector("#gd-note").value;
+      const useBase64 = toolbar.querySelector("#gd-use-base64").checked;
       const targets = [
         ...toolbar.querySelectorAll("input[type=checkbox]:checked"),
-      ].map((cb) => cb.value);
+      ]
+        .filter((cb) => cb.id !== "gd-use-base64")
+        .map((cb) => cb.value);
 
       if (!targets.length) {
         showToast("⚠️ Please select at least one document", 2000);
@@ -502,28 +537,52 @@ async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
       // Save current usage for next time
       saveLastUsage(targets, note);
 
-      // Show uploading state
+      // Show processing state
       uploadBtn.style.opacity = "0.7";
       uploadBtn.style.cursor = "not-allowed";
-      uploadBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 6v6l4 2"/>
-        </svg>
-        Uploading to Drive...
-      `;
+
+      if (useBase64) {
+        uploadBtn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+          Embedding...
+        `;
+      } else {
+        uploadBtn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+          Uploading to Drive...
+        `;
+      }
 
       try {
-        await captureAndCrop(bbox, note, targets);
-        showToast(
-          `✅ Screenshot uploaded to Google Drive and inserted into ${
-            targets.length
-          } document${targets.length > 1 ? "s" : ""}!`
-        );
+        await captureAndCrop(bbox, note, targets, useBase64);
+
+        if (useBase64) {
+          showToast(
+            `⚡ Screenshot embedded directly into ${targets.length} document${
+              targets.length > 1 ? "s" : ""
+            }!`
+          );
+        } else {
+          showToast(
+            `✅ Screenshot uploaded to Google Drive and inserted into ${
+              targets.length
+            } document${targets.length > 1 ? "s" : ""}!`
+          );
+        }
         cleanupAll();
       } catch (error) {
-        console.error("Upload failed:", error);
-        showToast("❌ Failed to upload screenshot to Google Drive", 3000);
+        console.error("Processing failed:", error);
+        if (useBase64) {
+          showToast("❌ Failed to embed screenshot", 3000);
+        } else {
+          showToast("❌ Failed to upload screenshot to Google Drive", 3000);
+        }
         cleanupAll();
       }
     };
@@ -568,7 +627,7 @@ async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
 }
 
 /* ------------------------------------------------------------------- */
-function captureAndCrop(box, note, targets) {
+function captureAndCrop(box, note, targets, useBase64) {
   return new Promise((resolve, reject) => {
     try {
       // Validate bounding box
@@ -689,7 +748,13 @@ function captureAndCrop(box, note, targets) {
 
             // Hand cropped image to background for upload & Docs insertion
             chrome.runtime.sendMessage(
-              { type: "PROCESS_IMAGE", note, targets, dataUrl: cropped },
+              {
+                type: "PROCESS_IMAGE",
+                note,
+                targets,
+                dataUrl: cropped,
+                useBase64,
+              },
               (response) => {
                 if (chrome.runtime.lastError) {
                   reject(new Error(chrome.runtime.lastError.message));
