@@ -1,19 +1,20 @@
-const IMGUR_CLIENT_ID = "32c4723d8ebca57";
+const GOOGLE_DRIVE_API_KEY = "YOUR_API_KEY_HERE"; // Users will need to get their own
+const GOOGLE_DRIVE_FOLDER_NAME = "GDocs Screenshots";
 
 // ②  Apps Script Web-App endpoint  (runs "as you" and writes to Docs)
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycby-c5wFql8yELI1IXu5p0rAdt7UyXAAd_4Np9jFdHhZ-jHrkwAOdQ_OTIHOe76J812E/exec";
 
-// Rate limiting and retry configuration
-const IMGUR_RATE_LIMIT = {
+// Configuration for uploads
+const UPLOAD_CONFIG = {
   maxRetries: 3,
   retryDelay: 2000, // 2 seconds
-  timeout: 30000, // 30 seconds
-  maxImageSize: 10 * 1024 * 1024, // 10MB limit
+  timeout: 60000, // 60 seconds for Google Drive
+  maxImageSize: 25 * 1024 * 1024, // 25MB limit for Google Drive
 };
 
-let imgurRetryCount = 0;
-let lastImgurRequest = 0;
+let uploadRetryCount = 0;
+let lastUploadRequest = 0;
 
 chrome.commands.onCommand.addListener((cmd) => {
   if (cmd === "start_capture") {
@@ -111,6 +112,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         });
       return true;
     }
+
+    if (msg.type === "GET_AUTH_TOKEN") {
+      // Get Google OAuth token for Drive API
+      chrome.identity.getAuthToken({ interactive: true }, (token) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ error: chrome.runtime.lastError.message });
+        } else {
+          sendResponse({ token });
+        }
+      });
+      return true;
+    }
   } catch (error) {
     console.error("Error in message handler:", error);
     sendResponse({ error: "Internal error" });
@@ -133,17 +146,17 @@ async function processImage({ dataUrl, note, targets }) {
 
     // Check image size before upload
     const imageSizeBytes = estimateImageSize(dataUrl);
-    if (imageSizeBytes > IMGUR_RATE_LIMIT.maxImageSize) {
+    if (imageSizeBytes > UPLOAD_CONFIG.maxImageSize) {
       throw new Error(
         `Image too large: ${Math.round(imageSizeBytes / 1024 / 1024)}MB. Max: ${
-          IMGUR_RATE_LIMIT.maxImageSize / 1024 / 1024
+          UPLOAD_CONFIG.maxImageSize / 1024 / 1024
         }MB`
       );
     }
 
-    // 3-A) Upload the cropped screenshot to Imgur with retry logic
-    const imgUrl = await uploadToImgurWithRetry(dataUrl);
-    console.log("✅ Image uploaded to Imgur:", imgUrl);
+    // 3-A) Upload the cropped screenshot to Google Drive with retry logic
+    const imgUrl = await uploadToGoogleDriveWithRetry(dataUrl);
+    console.log("✅ Image uploaded to Google Drive:", imgUrl);
 
     // 3-B) POST to Apps Script for each target Doc
     const results = [];
@@ -182,81 +195,26 @@ function estimateImageSize(dataUrl) {
   }
 }
 
-// Compress image if it's too large
-function compressImageIfNeeded(
-  dataUrl,
-  maxSizeBytes = IMGUR_RATE_LIMIT.maxImageSize
-) {
-  return new Promise((resolve) => {
-    try {
-      const estimatedSize = estimateImageSize(dataUrl);
-
-      if (estimatedSize <= maxSizeBytes) {
-        resolve(dataUrl);
-        return;
+// Get Google OAuth token
+async function getGoogleAuthToken() {
+  return new Promise((resolve, reject) => {
+    chrome.identity.getAuthToken({ interactive: true }, (token) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(token);
       }
-
-      console.log(
-        `Image size (${Math.round(
-          estimatedSize / 1024
-        )}KB) exceeds limit, compressing...`
-      );
-
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-
-          // Calculate compression ratio
-          const compressionRatio = Math.sqrt(maxSizeBytes / estimatedSize);
-          canvas.width = Math.floor(img.width * compressionRatio);
-          canvas.height = Math.floor(img.height * compressionRatio);
-
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          // Try different quality levels
-          for (let quality = 0.8; quality > 0.1; quality -= 0.1) {
-            const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
-            if (estimateImageSize(compressedDataUrl) <= maxSizeBytes) {
-              console.log(
-                `Image compressed to ${Math.round(
-                  estimateImageSize(compressedDataUrl) / 1024
-                )}KB`
-              );
-              resolve(compressedDataUrl);
-              return;
-            }
-          }
-
-          // If still too large, use lowest quality
-          resolve(canvas.toDataURL("image/jpeg", 0.1));
-        } catch (error) {
-          console.error("Image compression failed:", error);
-          resolve(dataUrl); // Return original if compression fails
-        }
-      };
-
-      img.onerror = () => {
-        console.error("Could not load image for compression");
-        resolve(dataUrl);
-      };
-
-      img.src = dataUrl;
-    } catch (error) {
-      console.error("Error in image compression:", error);
-      resolve(dataUrl);
-    }
+    });
   });
 }
 
-// Upload to Imgur with retry logic and rate limiting
-async function uploadToImgurWithRetry(dataUrl, retryCount = 0) {
+// Upload to Google Drive with retry logic
+async function uploadToGoogleDriveWithRetry(dataUrl, retryCount = 0) {
   try {
     // Rate limiting: enforce minimum delay between requests
     const now = Date.now();
-    const timeSinceLastRequest = now - lastImgurRequest;
-    const minDelay = 1000; // 1 second minimum between requests
+    const timeSinceLastRequest = now - lastUploadRequest;
+    const minDelay = 500; // 500ms minimum between requests (much faster than Imgur)
 
     if (timeSinceLastRequest < minDelay) {
       const waitTime = minDelay - timeSinceLastRequest;
@@ -264,38 +222,38 @@ async function uploadToImgurWithRetry(dataUrl, retryCount = 0) {
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
 
-    lastImgurRequest = Date.now();
+    lastUploadRequest = Date.now();
 
-    // Compress image if needed
-    const processedDataUrl = await compressImageIfNeeded(dataUrl);
-
-    return await uploadToImgur(processedDataUrl);
+    return await uploadToGoogleDrive(dataUrl);
   } catch (error) {
-    console.error(`Imgur upload attempt ${retryCount + 1} failed:`, error);
+    console.error(
+      `Google Drive upload attempt ${retryCount + 1} failed:`,
+      error
+    );
 
     // Check if we should retry
-    if (retryCount < IMGUR_RATE_LIMIT.maxRetries) {
+    if (retryCount < UPLOAD_CONFIG.maxRetries) {
       // Exponential backoff for retries
-      const delay = IMGUR_RATE_LIMIT.retryDelay * Math.pow(2, retryCount);
+      const delay = UPLOAD_CONFIG.retryDelay * Math.pow(2, retryCount);
       console.log(
         `Retrying in ${delay}ms... (attempt ${retryCount + 1}/${
-          IMGUR_RATE_LIMIT.maxRetries
+          UPLOAD_CONFIG.maxRetries
         })`
       );
 
       await new Promise((resolve) => setTimeout(resolve, delay));
-      return uploadToImgurWithRetry(dataUrl, retryCount + 1);
+      return uploadToGoogleDriveWithRetry(dataUrl, retryCount + 1);
     }
 
     // All retries exhausted
     throw new Error(
-      `Imgur upload failed after ${IMGUR_RATE_LIMIT.maxRetries} attempts: ${error.message}`
+      `Google Drive upload failed after ${UPLOAD_CONFIG.maxRetries} attempts: ${error.message}`
     );
   }
 }
 
-// Upload base64 PNG to Imgur with timeout handling
-async function uploadToImgur(dataUrl) {
+// Upload base64 image to Google Drive
+async function uploadToGoogleDrive(dataUrl) {
   let controller;
 
   try {
@@ -314,70 +272,99 @@ async function uploadToImgur(dataUrl) {
     }
 
     console.log(
-      `Uploading to Imgur... (${Math.round(base64Data.length / 1024)}KB)`
+      `Uploading to Google Drive... (${Math.round(base64Data.length / 1024)}KB)`
     );
+
+    // Get OAuth token
+    const token = await getGoogleAuthToken();
 
     // Create AbortController for timeout handling
     controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();
-    }, IMGUR_RATE_LIMIT.timeout);
+    }, UPLOAD_CONFIG.timeout);
 
-    const res = await fetch("https://api.imgur.com/3/image", {
-      method: "POST",
-      headers: {
-        Authorization: `Client-ID ${IMGUR_CLIENT_ID}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        image: base64Data,
-        type: "base64",
-        title: "Screenshot from GDocs Extension",
-        description: "Automatically uploaded screenshot",
-      }),
-      signal: controller.signal,
-    });
+    // Convert base64 to blob
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: "image/png" });
+
+    // Generate unique filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `screenshot-${timestamp}.png`;
+
+    // Upload to Google Drive
+    const formData = new FormData();
+    formData.append(
+      "metadata",
+      new Blob(
+        [
+          JSON.stringify({
+            name: filename,
+            parents: await getOrCreateFolder(token),
+          }),
+        ],
+        { type: "application/json" }
+      )
+    );
+    formData.append("file", blob);
+
+    const res = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+        signal: controller.signal,
+      }
+    );
 
     clearTimeout(timeoutId);
 
     if (!res.ok) {
       let errorText;
       try {
-        errorText = await res.text();
+        const errorData = await res.json();
+        errorText = errorData.error?.message || `HTTP ${res.status}`;
       } catch (e) {
-        errorText = "Could not read error response";
+        errorText = `HTTP ${res.status}`;
       }
 
-      // Handle specific Imgur error codes
-      if (res.status === 429) {
-        throw new Error(
-          "Imgur rate limit exceeded. Please wait before uploading again."
-        );
-      } else if (res.status === 413) {
-        throw new Error("Image too large for Imgur");
+      // Handle specific Google Drive error codes
+      if (res.status === 401) {
+        throw new Error("Authentication failed. Please try again.");
+      } else if (res.status === 403) {
+        throw new Error("Google Drive access denied. Check permissions.");
+      } else if (res.status === 429) {
+        throw new Error("Google Drive rate limit exceeded. Please wait.");
       } else if (res.status >= 500) {
         throw new Error(
-          `Imgur server error (${res.status}). Please try again later.`
+          `Google Drive server error (${res.status}). Please try again later.`
         );
       }
 
-      throw new Error(`Imgur API error ${res.status}: ${errorText}`);
+      throw new Error(`Google Drive API error: ${errorText}`);
     }
 
-    const json = await res.json();
+    const fileData = await res.json();
 
-    if (!json.success) {
-      const errorMsg =
-        json.data?.error?.message || json.data?.error || "Unknown error";
-      throw new Error(`Imgur upload failed: ${errorMsg}`);
+    if (!fileData.id) {
+      throw new Error("Google Drive response missing file ID");
     }
 
-    if (!json.data?.link) {
-      throw new Error("Imgur response missing image link");
-    }
+    // Make file publicly viewable
+    await makeFilePublic(token, fileData.id);
 
-    console.log(`✅ Imgur upload successful: ${json.data.link}`);
-    return json.data.link;
+    // Return the public view URL
+    const publicUrl = `https://drive.google.com/uc?id=${fileData.id}`;
+    console.log(`✅ Google Drive upload successful: ${publicUrl}`);
+    return publicUrl;
   } catch (error) {
     if (controller) {
       controller.abort(); // Cleanup on error
@@ -385,20 +372,83 @@ async function uploadToImgur(dataUrl) {
 
     if (error.name === "AbortError") {
       throw new Error(
-        `Imgur upload timed out after ${
-          IMGUR_RATE_LIMIT.timeout / 1000
+        `Google Drive upload timed out after ${
+          UPLOAD_CONFIG.timeout / 1000
         } seconds`
       );
     }
 
     if (error.message.includes("Failed to fetch")) {
       throw new Error(
-        "Network error: Could not connect to Imgur. Check your internet connection."
+        "Network error: Could not connect to Google Drive. Check your internet connection."
       );
     }
 
-    console.error("Imgur upload error:", error);
+    console.error("Google Drive upload error:", error);
     throw error;
+  }
+}
+
+// Get or create the screenshots folder in Google Drive
+async function getOrCreateFolder(token) {
+  try {
+    // Search for existing folder
+    const searchRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name='${GOOGLE_DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder'`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const searchData = await searchRes.json();
+
+    if (searchData.files && searchData.files.length > 0) {
+      return [searchData.files[0].id];
+    }
+
+    // Create folder if it doesn't exist
+    const createRes = await fetch("https://www.googleapis.com/drive/v3/files", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: GOOGLE_DRIVE_FOLDER_NAME,
+        mimeType: "application/vnd.google-apps.folder",
+      }),
+    });
+
+    const folderData = await createRes.json();
+    return [folderData.id];
+  } catch (error) {
+    console.warn("Could not create/find folder, uploading to root:", error);
+    return undefined; // Upload to root if folder creation fails
+  }
+}
+
+// Make file publicly viewable
+async function makeFilePublic(token, fileId) {
+  try {
+    await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}/permissions`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          role: "reader",
+          type: "anyone",
+        }),
+      }
+    );
+  } catch (error) {
+    console.warn("Could not make file public:", error);
+    // Continue anyway - file might still be accessible
   }
 }
 
@@ -470,16 +520,16 @@ async function postToAppsScript({ docId, imgUrl, note }) {
 chrome.runtime.onInstalled.addListener(() => {
   console.log("GDocs Screenshot Extension installed/updated");
   // Reset rate limiting on install/update
-  imgurRetryCount = 0;
-  lastImgurRequest = 0;
+  uploadRetryCount = 0;
+  lastUploadRequest = 0;
 });
 
 // Handle extension startup
 chrome.runtime.onStartup.addListener(() => {
   console.log("GDocs Screenshot Extension started");
   // Reset rate limiting on startup
-  imgurRetryCount = 0;
-  lastImgurRequest = 0;
+  uploadRetryCount = 0;
+  lastUploadRequest = 0;
 });
 
 // Handle extension suspension/wake
@@ -489,9 +539,9 @@ chrome.runtime.onSuspend.addListener(() => {
 
 // Memory cleanup - periodically reset counters
 setInterval(() => {
-  if (Date.now() - lastImgurRequest > 300000) {
+  if (Date.now() - lastUploadRequest > 300000) {
     // 5 minutes
-    imgurRetryCount = 0;
-    console.log("Reset Imgur rate limiting counters due to inactivity");
+    uploadRetryCount = 0;
+    console.log("Reset upload rate limiting counters due to inactivity");
   }
 }, 60000); // Check every minute

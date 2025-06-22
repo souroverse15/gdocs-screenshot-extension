@@ -1,15 +1,17 @@
 {
   "manifest_version": 3,
-  "name": "GDocs Screenshot Uploader",
+  "name": "GDocs Screenshot Extension",
   "version": "1.0",
-  "description": "Capture and insert screenshots into selected Google Docs.",
-  "permissions": ["activeTab", "scripting", "storage", "tabs"],
-  "host_permissions": ["<all_urls>"],
+  "description": "Take screenshots and insert them into Google Docs",
+  "permissions": ["activeTab", "storage", "identity"],
+  "oauth2": {
+    "client_id": "YOUR_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/drive.file"]
+  },
+  "host_permissions": ["https://www.googleapis.com/*"],
   "action": {
     "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icon.png"
-    }
+    "default_title": "GDocs Screenshot"
   },
   "background": {
     "service_worker": "background.js"
@@ -32,7 +34,7 @@
         "default": "Ctrl+Shift+X",
         "mac": "Command+Shift+X"
       },
-      "description": "Start screenshot capture"
+      "description": "Start screenshot capture (chosen to avoid Windows conflicts)"
     }
   }
 }

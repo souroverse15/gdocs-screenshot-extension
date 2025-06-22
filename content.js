@@ -510,20 +510,20 @@ async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
           <circle cx="12" cy="12" r="10"/>
           <path d="M12 6v6l4 2"/>
         </svg>
-        Uploading...
+        Uploading to Drive...
       `;
 
       try {
         await captureAndCrop(bbox, note, targets);
         showToast(
-          `✅ Screenshot uploaded to ${targets.length} document${
-            targets.length > 1 ? "s" : ""
-          }!`
+          `✅ Screenshot uploaded to Google Drive and inserted into ${
+            targets.length
+          } document${targets.length > 1 ? "s" : ""}!`
         );
         cleanupAll();
       } catch (error) {
         console.error("Upload failed:", error);
-        showToast("❌ Failed to upload screenshot", 3000);
+        showToast("❌ Failed to upload screenshot to Google Drive", 3000);
         cleanupAll();
       }
     };
