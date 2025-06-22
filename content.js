@@ -1,6 +1,12 @@
 /* content.js  – injected into every page (per manifest) */
 
-const TOOLBAR_HTML = `
+// Prevent multiple initializations
+if (window.gdocsScreenshotExtension) {
+  console.log("GDocs Screenshot Extension already initialized");
+} else {
+  window.gdocsScreenshotExtension = true;
+
+  const TOOLBAR_HTML = `
   <div id="gd-toolbar" style="
     position: absolute;
     z-index: 2147483648;
@@ -126,7 +132,7 @@ const TOOLBAR_HTML = `
     </div>
   </div>`;
 
-const TOAST_HTML = `
+  const TOAST_HTML = `
   <div id="gd-toast" style="
     position: fixed;
     top: 20px;
@@ -154,192 +160,192 @@ const TOAST_HTML = `
     <span id="gd-toast-message">Screenshot uploaded successfully!</span>
   </div>`;
 
-let overlay = null;
-let currentToolbar = null;
-let currentToast = null;
-let isCapturing = false;
-let eventListeners = new Set(); // Track event listeners for cleanup
+  let overlay = null;
+  let currentToolbar = null;
+  let currentToast = null;
+  let isCapturing = false;
+  let eventListeners = new Set(); // Track event listeners for cleanup
 
-// Enhanced cleanup function to prevent memory leaks and crashes
-function cleanupAll() {
-  try {
-    isCapturing = false;
+  // Enhanced cleanup function to prevent memory leaks and crashes
+  function cleanupAll() {
+    try {
+      isCapturing = false;
 
-    // Remove all tracked event listeners
-    eventListeners.forEach(({ element, event, handler }) => {
-      if (element && typeof element.removeEventListener === "function") {
-        element.removeEventListener(event, handler);
+      // Remove all tracked event listeners
+      eventListeners.forEach(({ element, event, handler }) => {
+        if (element && typeof element.removeEventListener === "function") {
+          element.removeEventListener(event, handler);
+        }
+      });
+      eventListeners.clear();
+
+      // Remove overlay
+      if (overlay && overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
       }
-    });
-    eventListeners.clear();
+      overlay = null;
 
-    // Remove overlay
-    if (overlay && overlay.parentNode) {
-      overlay.parentNode.removeChild(overlay);
-    }
-    overlay = null;
-
-    // Remove toolbar
-    if (currentToolbar && currentToolbar.parentNode) {
-      currentToolbar.parentNode.removeChild(currentToolbar);
-    }
-    currentToolbar = null;
-
-    // Remove any existing toolbar by ID
-    const existingToolbar = document.getElementById("gd-toolbar");
-    if (existingToolbar && existingToolbar.parentNode) {
-      existingToolbar.parentNode.removeChild(existingToolbar);
-    }
-
-    // Remove toast if exists
-    const existingToast = document.getElementById("gd-toast");
-    if (existingToast && existingToast.parentNode) {
-      existingToast.parentNode.removeChild(existingToast);
-    }
-
-    // Reset cursor
-    document.body.style.cursor = "";
-  } catch (error) {
-    console.error("Error during cleanup:", error);
-  }
-}
-
-// Enhanced event listener tracking to prevent memory leaks
-function addTrackedEventListener(element, event, handler, options = {}) {
-  element.addEventListener(event, handler, options);
-  eventListeners.add({ element, event, handler });
-}
-
-// Show toast notification
-function showToast(message, duration = 3000) {
-  try {
-    // Remove existing toast
-    const existingToast = document.getElementById("gd-toast");
-    if (existingToast && existingToast.parentNode) {
-      existingToast.parentNode.removeChild(existingToast);
-    }
-
-    // Create new toast
-    const toastContainer = document.createElement("div");
-    toastContainer.innerHTML = TOAST_HTML;
-    const toast = toastContainer.firstElementChild;
-
-    // Update message
-    toast.querySelector("#gd-toast-message").textContent = message;
-
-    document.body.appendChild(toast);
-    currentToast = toast;
-
-    // Animate in
-    requestAnimationFrame(() => {
-      toast.style.transform = "translateX(0)";
-      toast.style.opacity = "1";
-    });
-
-    // Auto hide
-    setTimeout(() => {
-      if (toast && toast.parentNode) {
-        toast.style.transform = "translateX(100%)";
-        toast.style.opacity = "0";
-        setTimeout(() => {
-          if (toast && toast.parentNode) {
-            toast.parentNode.removeChild(toast);
-          }
-          if (currentToast === toast) {
-            currentToast = null;
-          }
-        }, 300);
+      // Remove toolbar
+      if (currentToolbar && currentToolbar.parentNode) {
+        currentToolbar.parentNode.removeChild(currentToolbar);
       }
-    }, duration);
-  } catch (error) {
-    console.error("Error showing toast:", error);
+      currentToolbar = null;
+
+      // Remove any existing toolbar by ID
+      const existingToolbar = document.getElementById("gd-toolbar");
+      if (existingToolbar && existingToolbar.parentNode) {
+        existingToolbar.parentNode.removeChild(existingToolbar);
+      }
+
+      // Remove toast if exists
+      const existingToast = document.getElementById("gd-toast");
+      if (existingToast && existingToast.parentNode) {
+        existingToast.parentNode.removeChild(existingToast);
+      }
+
+      // Reset cursor
+      document.body.style.cursor = "";
+    } catch (error) {
+      console.error("Error during cleanup:", error);
+    }
   }
-}
 
-function fetchDocs(cb) {
-  chrome.storage.sync.get({ docs: [] }, ({ docs }) => cb(docs));
-}
+  // Enhanced event listener tracking to prevent memory leaks
+  function addTrackedEventListener(element, event, handler, options = {}) {
+    element.addEventListener(event, handler, options);
+    eventListeners.add({ element, event, handler });
+  }
 
-// Function to save last usage settings
-function saveLastUsage(targets, note) {
-  chrome.storage.sync.set({
-    lastUsage: {
-      targets: targets,
-      note: note,
-    },
+  // Show toast notification
+  function showToast(message, duration = 3000) {
+    try {
+      // Remove existing toast
+      const existingToast = document.getElementById("gd-toast");
+      if (existingToast && existingToast.parentNode) {
+        existingToast.parentNode.removeChild(existingToast);
+      }
+
+      // Create new toast
+      const toastContainer = document.createElement("div");
+      toastContainer.innerHTML = TOAST_HTML;
+      const toast = toastContainer.firstElementChild;
+
+      // Update message
+      toast.querySelector("#gd-toast-message").textContent = message;
+
+      document.body.appendChild(toast);
+      currentToast = toast;
+
+      // Animate in
+      requestAnimationFrame(() => {
+        toast.style.transform = "translateX(0)";
+        toast.style.opacity = "1";
+      });
+
+      // Auto hide
+      setTimeout(() => {
+        if (toast && toast.parentNode) {
+          toast.style.transform = "translateX(100%)";
+          toast.style.opacity = "0";
+          setTimeout(() => {
+            if (toast && toast.parentNode) {
+              toast.parentNode.removeChild(toast);
+            }
+            if (currentToast === toast) {
+              currentToast = null;
+            }
+          }, 300);
+        }
+      }, duration);
+    } catch (error) {
+      console.error("Error showing toast:", error);
+    }
+  }
+
+  function fetchDocs(cb) {
+    chrome.storage.sync.get({ docs: [] }, ({ docs }) => cb(docs));
+  }
+
+  // Function to save last usage settings
+  function saveLastUsage(targets, note) {
+    chrome.storage.sync.set({
+      lastUsage: {
+        targets: targets,
+        note: note,
+      },
+    });
+  }
+
+  // Function to get last usage settings
+  function getLastUsage(cb) {
+    chrome.storage.sync.get(
+      { lastUsage: { targets: [], note: "" } },
+      ({ lastUsage }) => cb(lastUsage)
+    );
+  }
+
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg.type === "START_CAPTURE" || msg.type === "START_CAPTURE_KEY") {
+      // Prevent multiple capture sessions
+      if (isCapturing) {
+        sendResponse();
+        return true;
+      }
+
+      // Clean up any existing UI first
+      cleanupAll();
+
+      // Small delay for Windows to ensure DOM is ready
+      const isWindows = navigator.platform.toLowerCase().includes("win");
+      const delay = isWindows ? 100 : 0;
+
+      setTimeout(() => {
+        makeOverlay();
+        sendResponse();
+      }, delay);
+
+      return true; // Keep message channel open for async response
+    }
   });
-}
 
-// Function to get last usage settings
-function getLastUsage(cb) {
-  chrome.storage.sync.get(
-    { lastUsage: { targets: [], note: "" } },
-    ({ lastUsage }) => cb(lastUsage)
-  );
-}
+  function makeOverlay(noteDefault = "", targetsDefault = []) {
+    if (isCapturing) return; // Prevent multiple overlays
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === "START_CAPTURE" || msg.type === "START_CAPTURE_KEY") {
-    // Prevent multiple capture sessions
-    if (isCapturing) {
-      sendResponse();
-      return true;
-    }
+    isCapturing = true;
+    cleanupAll(); // Ensure clean state
 
-    // Clean up any existing UI first
-    cleanupAll();
-
-    // Small delay for Windows to ensure DOM is ready
-    const isWindows = navigator.platform.toLowerCase().includes("win");
-    const delay = isWindows ? 100 : 0;
-
-    setTimeout(() => {
-      makeOverlay();
-      sendResponse();
-    }, delay);
-
-    return true; // Keep message channel open for async response
-  }
-});
-
-function makeOverlay(noteDefault = "", targetsDefault = []) {
-  if (isCapturing) return; // Prevent multiple overlays
-
-  isCapturing = true;
-  cleanupAll(); // Ensure clean state
-
-  overlay = document.createElement("div");
-  overlay.style.cssText = `
+    overlay = document.createElement("div");
+    overlay.style.cssText = `
     position: fixed;
     inset: 0;
     cursor: crosshair;
     z-index: 2147483647;
     background: rgba(0, 0, 0, 0.05);
   `;
-  document.body.appendChild(overlay);
+    document.body.appendChild(overlay);
 
-  // region rectangle
-  let rect = null;
-  let startX, startY;
-  let isDragging = false;
+    // region rectangle
+    let rect = null;
+    let startX, startY;
+    let isDragging = false;
 
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    const handleMouseDown = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    if (isDragging) return;
-    isDragging = true;
+      if (isDragging) return;
+      isDragging = true;
 
-    startX = e.clientX;
-    startY = e.clientY;
+      startX = e.clientX;
+      startY = e.clientY;
 
-    // Remove existing rect if any
-    if (rect && rect.parentNode) {
-      rect.parentNode.removeChild(rect);
-    }
+      // Remove existing rect if any
+      if (rect && rect.parentNode) {
+        rect.parentNode.removeChild(rect);
+      }
 
-    rect = document.createElement("div");
-    rect.style.cssText = `
+      rect = document.createElement("div");
+      rect.style.cssText = `
       position: fixed;
       background: rgba(102, 126, 234, 0.2);
       border: 2px solid #667eea;
@@ -347,108 +353,110 @@ function makeOverlay(noteDefault = "", targetsDefault = []) {
       pointer-events: none;
       z-index: 2147483648;
     `;
-    overlay.appendChild(rect);
+      overlay.appendChild(rect);
 
-    const handleMouseMove = (e) => {
-      if (!rect || !isDragging) return;
+      const handleMouseMove = (e) => {
+        if (!rect || !isDragging) return;
 
-      const x = Math.min(e.clientX, startX);
-      const y = Math.min(e.clientY, startY);
-      const w = Math.abs(e.clientX - startX);
-      const h = Math.abs(e.clientY - startY);
+        const x = Math.min(e.clientX, startX);
+        const y = Math.min(e.clientY, startY);
+        const w = Math.abs(e.clientX - startX);
+        const h = Math.abs(e.clientY - startY);
 
-      rect.style.left = `${x}px`;
-      rect.style.top = `${y}px`;
-      rect.style.width = `${w}px`;
-      rect.style.height = `${h}px`;
+        rect.style.left = `${x}px`;
+        rect.style.top = `${y}px`;
+        rect.style.width = `${w}px`;
+        rect.style.height = `${h}px`;
+      };
+
+      const handleMouseUp = async (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        // Remove event listeners
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+
+        if (!rect) return;
+
+        const bbox = rect.getBoundingClientRect();
+
+        // Minimum selection size
+        if (bbox.width < 10 || bbox.height < 10) {
+          cleanupAll();
+          return;
+        }
+
+        try {
+          // Hide overlay and rect immediately to prevent blur in screenshot
+          overlay.style.display = "none";
+          if (rect) rect.style.display = "none";
+
+          // Small delay to ensure overlay is hidden before screenshot
+          setTimeout(async () => {
+            await createToolbar(bbox, noteDefault, targetsDefault);
+          }, 50);
+        } catch (error) {
+          console.error("Error in mouse up handler:", error);
+          cleanupAll();
+        }
+      };
+
+      addTrackedEventListener(document, "mousemove", handleMouseMove);
+      addTrackedEventListener(document, "mouseup", handleMouseUp, {
+        once: true,
+      });
     };
 
-    const handleMouseUp = async (e) => {
-      if (!isDragging) return;
-      isDragging = false;
-
-      // Remove event listeners
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-
-      if (!rect) return;
-
-      const bbox = rect.getBoundingClientRect();
-
-      // Minimum selection size
-      if (bbox.width < 10 || bbox.height < 10) {
-        cleanupAll();
-        return;
-      }
-
-      try {
-        // Hide overlay and rect immediately to prevent blur in screenshot
-        overlay.style.display = "none";
-        if (rect) rect.style.display = "none";
-
-        // Small delay to ensure overlay is hidden before screenshot
-        setTimeout(async () => {
-          await createToolbar(bbox, noteDefault, targetsDefault);
-        }, 50);
-      } catch (error) {
-        console.error("Error in mouse up handler:", error);
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
         cleanupAll();
       }
     };
 
-    addTrackedEventListener(document, "mousemove", handleMouseMove);
-    addTrackedEventListener(document, "mouseup", handleMouseUp, { once: true });
-  };
+    addTrackedEventListener(overlay, "mousedown", handleMouseDown);
+    addTrackedEventListener(overlay, "keydown", handleKeyDown);
+    overlay.tabIndex = 0; // make it receive key events
+    overlay.focus();
+  }
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Escape") {
-      cleanupAll();
-    }
-  };
+  // Separate function to create toolbar after screenshot area is selected
+  async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
+    try {
+      // Create and position toolbar
+      const toolbarContainer = document.createElement("div");
+      toolbarContainer.innerHTML = TOOLBAR_HTML;
+      const toolbar = toolbarContainer.firstElementChild;
+      document.body.appendChild(toolbar);
+      currentToolbar = toolbar;
 
-  addTrackedEventListener(overlay, "mousedown", handleMouseDown);
-  addTrackedEventListener(overlay, "keydown", handleKeyDown);
-  overlay.tabIndex = 0; // make it receive key events
-  overlay.focus();
-}
+      // Position toolbar near bottom-right of selection (clamp to viewport)
+      const left = Math.min(bbox.right + 10, window.innerWidth - 300);
+      const top = Math.min(bbox.bottom + 10, window.innerHeight - 200);
+      toolbar.style.left = `${Math.max(10, left)}px`;
+      toolbar.style.top = `${Math.max(10, top)}px`;
 
-// Separate function to create toolbar after screenshot area is selected
-async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
-  try {
-    // Create and position toolbar
-    const toolbarContainer = document.createElement("div");
-    toolbarContainer.innerHTML = TOOLBAR_HTML;
-    const toolbar = toolbarContainer.firstElementChild;
-    document.body.appendChild(toolbar);
-    currentToolbar = toolbar;
+      // Get last usage settings and populate toolbar
+      getLastUsage((lastUsage) => {
+        const previousTargets = lastUsage.targets || [];
+        const previousNote = lastUsage.note || "";
 
-    // Position toolbar near bottom-right of selection (clamp to viewport)
-    const left = Math.min(bbox.right + 10, window.innerWidth - 300);
-    const top = Math.min(bbox.bottom + 10, window.innerHeight - 200);
-    toolbar.style.left = `${Math.max(10, left)}px`;
-    toolbar.style.top = `${Math.max(10, top)}px`;
+        // populate check-boxes
+        fetchDocs((docs) => {
+          const boxContainer = toolbar.querySelector("#gd-doc-boxes");
 
-    // Get last usage settings and populate toolbar
-    getLastUsage((lastUsage) => {
-      const previousTargets = lastUsage.targets || [];
-      const previousNote = lastUsage.note || "";
-
-      // populate check-boxes
-      fetchDocs((docs) => {
-        const boxContainer = toolbar.querySelector("#gd-doc-boxes");
-
-        if (docs.length === 0) {
-          boxContainer.innerHTML = `
+          if (docs.length === 0) {
+            boxContainer.innerHTML = `
             <div style="color: #666; font-style: italic; text-align: center; padding: 12px;">
               No documents added yet.<br>
               Add some in the extension popup!
             </div>
           `;
-        } else {
-          docs.forEach((d, i) => {
-            const id = `gd-cb-${i}`;
-            const docItem = document.createElement("div");
-            docItem.style.cssText = `
+          } else {
+            docs.forEach((d, i) => {
+              const id = `gd-cb-${i}`;
+              const docItem = document.createElement("div");
+              docItem.style.cssText = `
               display: flex;
               align-items: center;
               gap: 8px;
@@ -458,7 +466,7 @@ async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
               margin-bottom: 4px;
             `;
 
-            docItem.innerHTML = `
+              docItem.innerHTML = `
               <input type="checkbox" id="${id}" value="${d.docId}" style="
                 margin: 0;
                 transform: scale(1.1);
@@ -472,347 +480,350 @@ async function createToolbar(bbox, noteDefault = "", targetsDefault = []) {
               ">${d.label}</label>
             `;
 
-            boxContainer.appendChild(docItem);
+              boxContainer.appendChild(docItem);
 
-            // Check if this doc was selected in previous usage
-            const checkbox = docItem.querySelector("input");
-            if (
-              previousTargets.includes(d.docId) ||
-              targetsDefault.includes(d.docId)
-            ) {
-              checkbox.checked = true;
-            }
+              // Check if this doc was selected in previous usage
+              const checkbox = docItem.querySelector("input");
+              if (
+                previousTargets.includes(d.docId) ||
+                targetsDefault.includes(d.docId)
+              ) {
+                checkbox.checked = true;
+              }
 
-            // Add hover effect
-            const handleMouseEnter = () => {
-              docItem.style.backgroundColor = "#f0f0f0";
-            };
-            const handleMouseLeave = () => {
-              docItem.style.backgroundColor = "transparent";
-            };
+              // Add hover effect
+              const handleMouseEnter = () => {
+                docItem.style.backgroundColor = "#f0f0f0";
+              };
+              const handleMouseLeave = () => {
+                docItem.style.backgroundColor = "transparent";
+              };
 
-            addTrackedEventListener(docItem, "mouseenter", handleMouseEnter);
-            addTrackedEventListener(docItem, "mouseleave", handleMouseLeave);
-          });
-        }
+              addTrackedEventListener(docItem, "mouseenter", handleMouseEnter);
+              addTrackedEventListener(docItem, "mouseleave", handleMouseLeave);
+            });
+          }
+        });
+
+        // Set note field with previous note (or parameter default)
+        const noteField = toolbar.querySelector("#gd-note");
+        noteField.value = noteDefault || previousNote;
+
+        // Add focus styles
+        const handleFocus = () => {
+          noteField.style.borderColor = "#667eea";
+          noteField.style.boxShadow = "0 0 0 3px rgba(102, 126, 234, 0.1)";
+        };
+        const handleBlur = () => {
+          noteField.style.borderColor = "#e1e5e9";
+          noteField.style.boxShadow = "none";
+        };
+
+        addTrackedEventListener(noteField, "focus", handleFocus);
+        addTrackedEventListener(noteField, "blur", handleBlur);
       });
 
-      // Set note field with previous note (or parameter default)
-      const noteField = toolbar.querySelector("#gd-note");
-      noteField.value = noteDefault || previousNote;
+      // Upload click handler
+      const uploadBtn = toolbar.querySelector("#gd-upload");
+      const handleUploadClick = async () => {
+        const note = toolbar.querySelector("#gd-note").value;
+        const useBase64 = toolbar.querySelector("#gd-use-base64").checked;
+        const targets = [
+          ...toolbar.querySelectorAll("input[type=checkbox]:checked"),
+        ]
+          .filter((cb) => cb.id !== "gd-use-base64")
+          .map((cb) => cb.value);
 
-      // Add focus styles
-      const handleFocus = () => {
-        noteField.style.borderColor = "#667eea";
-        noteField.style.boxShadow = "0 0 0 3px rgba(102, 126, 234, 0.1)";
-      };
-      const handleBlur = () => {
-        noteField.style.borderColor = "#e1e5e9";
-        noteField.style.boxShadow = "none";
-      };
+        if (!targets.length) {
+          showToast("⚠️ Please select at least one document", 2000);
+          return;
+        }
 
-      addTrackedEventListener(noteField, "focus", handleFocus);
-      addTrackedEventListener(noteField, "blur", handleBlur);
-    });
+        // Save current usage for next time
+        saveLastUsage(targets, note);
 
-    // Upload click handler
-    const uploadBtn = toolbar.querySelector("#gd-upload");
-    const handleUploadClick = async () => {
-      const note = toolbar.querySelector("#gd-note").value;
-      const useBase64 = toolbar.querySelector("#gd-use-base64").checked;
-      const targets = [
-        ...toolbar.querySelectorAll("input[type=checkbox]:checked"),
-      ]
-        .filter((cb) => cb.id !== "gd-use-base64")
-        .map((cb) => cb.value);
+        // Show processing state
+        uploadBtn.style.opacity = "0.7";
+        uploadBtn.style.cursor = "not-allowed";
 
-      if (!targets.length) {
-        showToast("⚠️ Please select at least one document", 2000);
-        return;
-      }
-
-      // Save current usage for next time
-      saveLastUsage(targets, note);
-
-      // Show processing state
-      uploadBtn.style.opacity = "0.7";
-      uploadBtn.style.cursor = "not-allowed";
-
-      if (useBase64) {
-        uploadBtn.innerHTML = `
+        if (useBase64) {
+          uploadBtn.innerHTML = `
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <path d="M12 6v6l4 2"/>
           </svg>
           Embedding...
         `;
-      } else {
-        uploadBtn.innerHTML = `
+        } else {
+          uploadBtn.innerHTML = `
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <path d="M12 6v6l4 2"/>
           </svg>
           Uploading to Drive...
         `;
-      }
-
-      try {
-        await captureAndCrop(bbox, note, targets, useBase64);
-
-        if (useBase64) {
-          showToast(
-            `⚡ Screenshot embedded directly into ${targets.length} document${
-              targets.length > 1 ? "s" : ""
-            }!`
-          );
-        } else {
-          showToast(
-            `✅ Screenshot uploaded to Google Drive and inserted into ${
-              targets.length
-            } document${targets.length > 1 ? "s" : ""}!`
-          );
         }
-        cleanupAll();
-      } catch (error) {
-        console.error("Processing failed:", error);
-        if (useBase64) {
-          showToast("❌ Failed to embed screenshot", 3000);
-        } else {
-          showToast("❌ Failed to upload screenshot to Google Drive", 3000);
+
+        try {
+          await captureAndCrop(bbox, note, targets, useBase64);
+
+          if (useBase64) {
+            showToast(
+              `⚡ Screenshot embedded directly into ${targets.length} document${
+                targets.length > 1 ? "s" : ""
+              }!`
+            );
+          } else {
+            showToast(
+              `✅ Screenshot uploaded to Google Drive and inserted into ${
+                targets.length
+              } document${targets.length > 1 ? "s" : ""}!`
+            );
+          }
+          cleanupAll();
+        } catch (error) {
+          console.error("Processing failed:", error);
+          if (useBase64) {
+            showToast("❌ Failed to embed screenshot", 3000);
+          } else {
+            showToast("❌ Failed to upload screenshot to Google Drive", 3000);
+          }
+          cleanupAll();
         }
-        cleanupAll();
-      }
-    };
+      };
 
-    addTrackedEventListener(uploadBtn, "click", handleUploadClick);
+      addTrackedEventListener(uploadBtn, "click", handleUploadClick);
 
-    // Add hover effects for upload button
-    const handleUploadMouseEnter = () => {
-      if (uploadBtn.style.cursor !== "not-allowed") {
-        uploadBtn.style.transform = "translateY(-1px)";
-        uploadBtn.style.background = "#3367d6";
-      }
-    };
-    const handleUploadMouseLeave = () => {
-      uploadBtn.style.transform = "translateY(0)";
-      uploadBtn.style.background = "#4285f4";
-    };
+      // Add hover effects for upload button
+      const handleUploadMouseEnter = () => {
+        if (uploadBtn.style.cursor !== "not-allowed") {
+          uploadBtn.style.transform = "translateY(-1px)";
+          uploadBtn.style.background = "#3367d6";
+        }
+      };
+      const handleUploadMouseLeave = () => {
+        uploadBtn.style.transform = "translateY(0)";
+        uploadBtn.style.background = "#4285f4";
+      };
 
-    addTrackedEventListener(uploadBtn, "mouseenter", handleUploadMouseEnter);
-    addTrackedEventListener(uploadBtn, "mouseleave", handleUploadMouseLeave);
+      addTrackedEventListener(uploadBtn, "mouseenter", handleUploadMouseEnter);
+      addTrackedEventListener(uploadBtn, "mouseleave", handleUploadMouseLeave);
 
-    // Cancel click handler
-    const cancelBtn = toolbar.querySelector("#gd-cancel");
-    addTrackedEventListener(cancelBtn, "click", cleanupAll);
+      // Cancel click handler
+      const cancelBtn = toolbar.querySelector("#gd-cancel");
+      addTrackedEventListener(cancelBtn, "click", cleanupAll);
 
-    // Add hover effects for cancel button
-    const handleCancelMouseEnter = () => {
-      cancelBtn.style.backgroundColor = "#f5f5f5";
-      cancelBtn.style.borderColor = "#ccc";
-    };
-    const handleCancelMouseLeave = () => {
-      cancelBtn.style.backgroundColor = "#ffffff";
-      cancelBtn.style.borderColor = "#e1e5e9";
-    };
+      // Add hover effects for cancel button
+      const handleCancelMouseEnter = () => {
+        cancelBtn.style.backgroundColor = "#f5f5f5";
+        cancelBtn.style.borderColor = "#ccc";
+      };
+      const handleCancelMouseLeave = () => {
+        cancelBtn.style.backgroundColor = "#ffffff";
+        cancelBtn.style.borderColor = "#e1e5e9";
+      };
 
-    addTrackedEventListener(cancelBtn, "mouseenter", handleCancelMouseEnter);
-    addTrackedEventListener(cancelBtn, "mouseleave", handleCancelMouseLeave);
-  } catch (error) {
-    console.error("Error creating toolbar:", error);
-    cleanupAll();
+      addTrackedEventListener(cancelBtn, "mouseenter", handleCancelMouseEnter);
+      addTrackedEventListener(cancelBtn, "mouseleave", handleCancelMouseLeave);
+    } catch (error) {
+      console.error("Error creating toolbar:", error);
+      cleanupAll();
+    }
   }
-}
 
-/* ------------------------------------------------------------------- */
-function captureAndCrop(box, note, targets, useBase64) {
-  return new Promise((resolve, reject) => {
-    try {
-      // Validate bounding box
-      if (!box || box.width <= 0 || box.height <= 0) {
-        reject(new Error("Invalid selection area"));
-        return;
-      }
-
-      // Check for reasonable image dimensions to prevent memory issues
-      const maxDimension = 8192; // 8K max
-      if (box.width > maxDimension || box.height > maxDimension) {
-        reject(
-          new Error(
-            `Selection too large: ${box.width}x${box.height}. Max: ${maxDimension}x${maxDimension}`
-          )
-        );
-        return;
-      }
-
-      chrome.runtime.sendMessage({ type: "CAPTURE_VISIBLE" }, (dataUrl) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
+  /* ------------------------------------------------------------------- */
+  function captureAndCrop(box, note, targets, useBase64) {
+    return new Promise((resolve, reject) => {
+      try {
+        // Validate bounding box
+        if (!box || box.width <= 0 || box.height <= 0) {
+          reject(new Error("Invalid selection area"));
           return;
         }
 
-        if (!dataUrl) {
-          reject(new Error("Failed to capture screenshot"));
-          return;
-        }
-
-        // Check data URL size to prevent memory issues
-        if (dataUrl.length > 50 * 1024 * 1024) {
-          // 50MB limit for raw data URL
+        // Check for reasonable image dimensions to prevent memory issues
+        const maxDimension = 8192; // 8K max
+        if (box.width > maxDimension || box.height > maxDimension) {
           reject(
             new Error(
-              "Screenshot data too large. Try a smaller selection area."
+              `Selection too large: ${box.width}x${box.height}. Max: ${maxDimension}x${maxDimension}`
             )
           );
           return;
         }
 
-        // 🎞️ Crop with Windows DPI fix
-        const img = new Image();
-        img.onload = () => {
-          let canvas, ctx;
-          try {
-            canvas = document.createElement("canvas");
-            canvas.width = box.width;
-            canvas.height = box.height;
-            ctx = canvas.getContext("2d");
+        chrome.runtime.sendMessage({ type: "CAPTURE_VISIBLE" }, (dataUrl) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
 
-            if (!ctx) {
-              throw new Error("Could not get canvas context");
-            }
+          if (!dataUrl) {
+            reject(new Error("Failed to capture screenshot"));
+            return;
+          }
 
-            // Fix for Windows DPI scaling issues
-            const pixelRatio = window.devicePixelRatio || 1;
-            const isWindows = navigator.platform.toLowerCase().includes("win");
-
-            // Windows often has DPI scaling issues, use different approach
-            let sourceX, sourceY, sourceWidth, sourceHeight;
-
-            if (isWindows && pixelRatio !== 1) {
-              // Windows with scaling: use zoom-adjusted coordinates
-              const zoomFactor = window.visualViewport
-                ? window.visualViewport.scale || 1
-                : 1;
-
-              sourceX = (box.left * pixelRatio) / zoomFactor;
-              sourceY = (box.top * pixelRatio) / zoomFactor;
-              sourceWidth = (box.width * pixelRatio) / zoomFactor;
-              sourceHeight = (box.height * pixelRatio) / zoomFactor;
-            } else {
-              // Standard approach for Mac/Linux
-              sourceX = box.left * pixelRatio;
-              sourceY = box.top * pixelRatio;
-              sourceWidth = box.width * pixelRatio;
-              sourceHeight = box.height * pixelRatio;
-            }
-
-            // Validate coordinates
-            if (
-              sourceX < 0 ||
-              sourceY < 0 ||
-              sourceWidth <= 0 ||
-              sourceHeight <= 0
-            ) {
-              throw new Error("Invalid crop coordinates calculated");
-            }
-
-            ctx.drawImage(
-              img,
-              sourceX,
-              sourceY,
-              sourceWidth,
-              sourceHeight,
-              0,
-              0,
-              box.width,
-              box.height
+          // Check data URL size to prevent memory issues
+          if (dataUrl.length > 50 * 1024 * 1024) {
+            // 50MB limit for raw data URL
+            reject(
+              new Error(
+                "Screenshot data too large. Try a smaller selection area."
+              )
             );
+            return;
+          }
 
-            const cropped = canvas.toDataURL("image/png");
+          // 🎞️ Crop with Windows DPI fix
+          const img = new Image();
+          img.onload = () => {
+            let canvas, ctx;
+            try {
+              canvas = document.createElement("canvas");
+              canvas.width = box.width;
+              canvas.height = box.height;
+              ctx = canvas.getContext("2d");
 
-            // Check cropped image size
-            if (cropped.length > 20 * 1024 * 1024) {
-              // 20MB limit for cropped image
-              console.warn(
-                "Cropped image is very large, this may cause upload issues"
-              );
-            }
-
-            // Clean up canvas to free memory
-            canvas.width = 0;
-            canvas.height = 0;
-            canvas = null;
-            ctx = null;
-
-            // Hand cropped image to background for upload & Docs insertion
-            chrome.runtime.sendMessage(
-              {
-                type: "PROCESS_IMAGE",
-                note,
-                targets,
-                dataUrl: cropped,
-                useBase64,
-              },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                } else if (response && response.error) {
-                  reject(new Error(response.error));
-                } else {
-                  resolve(response);
-                }
+              if (!ctx) {
+                throw new Error("Could not get canvas context");
               }
-            );
-          } catch (error) {
-            // Clean up on error
-            if (canvas) {
+
+              // Fix for Windows DPI scaling issues
+              const pixelRatio = window.devicePixelRatio || 1;
+              const isWindows = navigator.platform
+                .toLowerCase()
+                .includes("win");
+
+              // Windows often has DPI scaling issues, use different approach
+              let sourceX, sourceY, sourceWidth, sourceHeight;
+
+              if (isWindows && pixelRatio !== 1) {
+                // Windows with scaling: use zoom-adjusted coordinates
+                const zoomFactor = window.visualViewport
+                  ? window.visualViewport.scale || 1
+                  : 1;
+
+                sourceX = (box.left * pixelRatio) / zoomFactor;
+                sourceY = (box.top * pixelRatio) / zoomFactor;
+                sourceWidth = (box.width * pixelRatio) / zoomFactor;
+                sourceHeight = (box.height * pixelRatio) / zoomFactor;
+              } else {
+                // Standard approach for Mac/Linux
+                sourceX = box.left * pixelRatio;
+                sourceY = box.top * pixelRatio;
+                sourceWidth = box.width * pixelRatio;
+                sourceHeight = box.height * pixelRatio;
+              }
+
+              // Validate coordinates
+              if (
+                sourceX < 0 ||
+                sourceY < 0 ||
+                sourceWidth <= 0 ||
+                sourceHeight <= 0
+              ) {
+                throw new Error("Invalid crop coordinates calculated");
+              }
+
+              ctx.drawImage(
+                img,
+                sourceX,
+                sourceY,
+                sourceWidth,
+                sourceHeight,
+                0,
+                0,
+                box.width,
+                box.height
+              );
+
+              const cropped = canvas.toDataURL("image/png");
+
+              // Check cropped image size
+              if (cropped.length > 20 * 1024 * 1024) {
+                // 20MB limit for cropped image
+                console.warn(
+                  "Cropped image is very large, this may cause upload issues"
+                );
+              }
+
+              // Clean up canvas to free memory
               canvas.width = 0;
               canvas.height = 0;
+              canvas = null;
+              ctx = null;
+
+              // Hand cropped image to background for upload & Docs insertion
+              chrome.runtime.sendMessage(
+                {
+                  type: "PROCESS_IMAGE",
+                  note,
+                  targets,
+                  dataUrl: cropped,
+                  useBase64,
+                },
+                (response) => {
+                  if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                  } else if (response && response.error) {
+                    reject(new Error(response.error));
+                  } else {
+                    resolve(response);
+                  }
+                }
+              );
+            } catch (error) {
+              // Clean up on error
+              if (canvas) {
+                canvas.width = 0;
+                canvas.height = 0;
+              }
+              reject(error);
             }
-            reject(error);
-          }
-        };
-
-        img.onerror = () => {
-          reject(new Error("Failed to load captured image"));
-        };
-
-        // Set timeout for image loading
-        const imageLoadTimeout = setTimeout(() => {
-          img.onload = null;
-          img.onerror = null;
-          reject(new Error("Image loading timed out"));
-        }, 10000); // 10 second timeout
-
-        img.onload = ((originalOnLoad) => {
-          return function () {
-            clearTimeout(imageLoadTimeout);
-            return originalOnLoad.apply(this, arguments);
           };
-        })(img.onload);
 
-        img.onerror = ((originalOnError) => {
-          return function () {
-            clearTimeout(imageLoadTimeout);
-            return originalOnError.apply(this, arguments);
+          img.onerror = () => {
+            reject(new Error("Failed to load captured image"));
           };
-        })(img.onerror);
 
-        img.src = dataUrl;
-      });
-    } catch (error) {
-      reject(error);
+          // Set timeout for image loading
+          const imageLoadTimeout = setTimeout(() => {
+            img.onload = null;
+            img.onerror = null;
+            reject(new Error("Image loading timed out"));
+          }, 10000); // 10 second timeout
+
+          img.onload = ((originalOnLoad) => {
+            return function () {
+              clearTimeout(imageLoadTimeout);
+              return originalOnLoad.apply(this, arguments);
+            };
+          })(img.onload);
+
+          img.onerror = ((originalOnError) => {
+            return function () {
+              clearTimeout(imageLoadTimeout);
+              return originalOnError.apply(this, arguments);
+            };
+          })(img.onerror);
+
+          img.src = dataUrl;
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  // Cleanup on page unload to prevent memory leaks
+  addTrackedEventListener(window, "beforeunload", cleanupAll);
+  addTrackedEventListener(document, "visibilitychange", () => {
+    if (document.hidden) {
+      cleanupAll();
     }
   });
-}
 
-// Cleanup on page unload to prevent memory leaks
-addTrackedEventListener(window, "beforeunload", cleanupAll);
-addTrackedEventListener(document, "visibilitychange", () => {
-  if (document.hidden) {
-    cleanupAll();
-  }
-});
-
-// Additional cleanup for page navigation
-addTrackedEventListener(window, "pagehide", cleanupAll);
-addTrackedEventListener(window, "unload", cleanupAll);
+  // Additional cleanup for page navigation
+  addTrackedEventListener(window, "pagehide", cleanupAll);
+  addTrackedEventListener(window, "unload", cleanupAll);
+} // End of window.gdocsScreenshotExtension initialization

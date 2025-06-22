@@ -3,9 +3,9 @@
   "name": "GDocs Screenshot Extension",
   "version": "1.0",
   "description": "Take screenshots and insert them into Google Docs",
-  "permissions": ["activeTab", "storage", "identity"],
+  "permissions": ["activeTab", "storage", "identity", "scripting"],
   "oauth2": {
-    "client_id": "YOUR_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com",
+    "client_id": "773023362737-rvhlhf4g3r345ulk2jqo3c72vsb8tk18.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/drive.file"]
   },
   "host_permissions": ["https://www.googleapis.com/*"],

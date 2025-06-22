@@ -40,14 +40,45 @@ chrome.commands.onCommand.addListener((cmd) => {
           return;
         }
 
+        // First try to send message to existing content script
         chrome.tabs.sendMessage(
           tab.id,
           { type: "START_CAPTURE_KEY" },
           (response) => {
             if (chrome.runtime.lastError) {
-              console.error(
-                "Could not communicate with content script:",
-                chrome.runtime.lastError.message || chrome.runtime.lastError
+              // Content script not loaded, inject it first
+              console.log("Content script not found, injecting...");
+
+              chrome.scripting.executeScript(
+                {
+                  target: { tabId: tab.id },
+                  files: ["content.js"],
+                },
+                () => {
+                  if (chrome.runtime.lastError) {
+                    console.error(
+                      "Failed to inject content script:",
+                      chrome.runtime.lastError
+                    );
+                    return;
+                  }
+
+                  // Wait a moment for content script to initialize, then send message
+                  setTimeout(() => {
+                    chrome.tabs.sendMessage(
+                      tab.id,
+                      { type: "START_CAPTURE_KEY" },
+                      (response) => {
+                        if (chrome.runtime.lastError) {
+                          console.error(
+                            "Still could not communicate with content script:",
+                            chrome.runtime.lastError
+                          );
+                        }
+                      }
+                    );
+                  }, 100);
+                }
               );
             }
           }
