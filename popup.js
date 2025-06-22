@@ -160,7 +160,7 @@ function removeDoc(docId) {
 
 /* Capture ------------------------------------------------------------- */
 function handleCapture() {
-  const captureBtn = document.getElementById("capture-btn");
+  const captureBtn = document.getElementById("captureBtn");
   const originalContent = captureBtn.innerHTML;
 
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
@@ -170,10 +170,9 @@ function handleCapture() {
       tab.url.startsWith("chrome-extension://") ||
       tab.url.startsWith("moz-extension://")
     ) {
-      captureBtn.style.background =
-        "linear-gradient(135deg, #dc3545 0%, #c82333 100%)";
+      captureBtn.style.background = "#dc3545";
       captureBtn.innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/>
           <line x1="15" y1="9" x2="9" y2="15"/>
           <line x1="9" y1="9" x2="15" y2="15"/>
@@ -183,17 +182,17 @@ function handleCapture() {
 
       // Reset after 3 seconds
       setTimeout(() => {
-        captureBtn.style.background =
-          "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+        captureBtn.style.background = "#4285f4";
         captureBtn.innerHTML = originalContent;
       }, 3000);
       return;
     }
 
     // Show loading state
-    captureBtn.classList.add("button-loading");
+    captureBtn.style.opacity = "0.7";
+    captureBtn.style.cursor = "not-allowed";
     captureBtn.innerHTML = `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"/>
         <path d="M12 6v6l4 2"/>
       </svg>
@@ -203,11 +202,11 @@ function handleCapture() {
     chrome.tabs.sendMessage(tab.id, { type: "START_CAPTURE" }, (response) => {
       if (chrome.runtime.lastError) {
         // Error state
-        captureBtn.classList.remove("button-loading");
-        captureBtn.style.background =
-          "linear-gradient(135deg, #dc3545 0%, #c82333 100%)";
+        captureBtn.style.opacity = "1";
+        captureBtn.style.cursor = "pointer";
+        captureBtn.style.background = "#dc3545";
         captureBtn.innerHTML = `
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <line x1="15" y1="9" x2="9" y2="15"/>
             <line x1="9" y1="9" x2="15" y2="15"/>
@@ -217,8 +216,9 @@ function handleCapture() {
 
         // Reset after 4 seconds
         setTimeout(() => {
-          captureBtn.style.background =
-            "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+          captureBtn.style.background = "#4285f4";
+          captureBtn.style.opacity = "1";
+          captureBtn.style.cursor = "pointer";
           captureBtn.innerHTML = originalContent;
         }, 4000);
       } else {
@@ -270,6 +270,9 @@ function setupInputEnhancements() {
 document.addEventListener("DOMContentLoaded", () => {
   // Setup event listeners
   document.getElementById("addDoc").addEventListener("click", addDoc);
+  document
+    .getElementById("captureBtn")
+    .addEventListener("click", handleCapture);
 
   // Enter key handling for inputs
   document.getElementById("docLabel").addEventListener("keypress", (e) => {

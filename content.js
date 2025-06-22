@@ -19,6 +19,9 @@ if (window.gdocsScreenshotExtension) {
     padding: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 260px;
+    max-width: 320px;
+    max-height: 400px;
+    overflow-y: auto;
   ">
     <div style="
       font-weight: 600;
@@ -29,45 +32,13 @@ if (window.gdocsScreenshotExtension) {
     
     <div id="gd-doc-boxes" style="
       margin-bottom: 10px;
-      max-height: 100px;
+      max-height: 150px;
       overflow-y: auto;
       border: 1px solid #e1e5e9;
       border-radius: 6px;
       padding: 6px;
       background: #fafafa;
     "></div>
-    
-    <div style="
-      margin-bottom: 10px;
-      padding: 6px 8px;
-      background: #f8f9ff;
-      border: 1px solid #e1e5e9;
-      border-radius: 6px;
-      font-size: 12px;
-    ">
-      <label style="
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
-        color: #333;
-        font-weight: 500;
-      ">
-        <input type="checkbox" id="gd-use-base64" style="
-          margin: 0;
-          transform: scale(1.0);
-        ">
-        <span>⚡ Use Base64 embedding (faster, no upload)</span>
-      </label>
-      <div style="
-        margin-top: 2px;
-        font-size: 11px;
-        color: #666;
-        margin-left: 18px;
-      ">
-        Embeds directly in document. Faster but makes docs larger.
-      </div>
-    </div>
     
     <textarea id="gd-note"
       placeholder="Add a note (optional)..." 
@@ -86,20 +57,24 @@ if (window.gdocsScreenshotExtension) {
         transition: border-color 0.2s ease;
       "
     ></textarea>
-    <div style="display: flex; gap: 6px; justify-content: flex-end;">
+    <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
       <button id="gd-cancel" style="
-        display: flex;
+        display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 4px;
-        padding: 6px 12px;
+        padding: 8px 14px;
         border: 1px solid #e1e5e9;
         border-radius: 6px;
         background: #ffffff;
         color: #666;
         font-family: inherit;
         font-size: 13px;
+        font-weight: 500;
         cursor: pointer;
         transition: all 0.2s ease;
+        min-height: 32px;
+        white-space: nowrap;
       ">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/>
@@ -108,10 +83,11 @@ if (window.gdocsScreenshotExtension) {
         Cancel
       </button>
       <button id="gd-upload" style="
-        display: flex;
+        display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 4px;
-        padding: 6px 12px;
+        padding: 8px 14px;
         border: none;
         border-radius: 6px;
         background: #4285f4;
@@ -121,13 +97,15 @@ if (window.gdocsScreenshotExtension) {
         font-weight: 500;
         cursor: pointer;
         transition: all 0.2s ease;
+        min-height: 32px;
+        white-space: nowrap;
       ">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7,10 12,15 17,10"/>
           <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
-        Upload
+        Insert
       </button>
     </div>
   </div>`;
@@ -259,6 +237,164 @@ if (window.gdocsScreenshotExtension) {
       }, duration);
     } catch (error) {
       console.error("Error showing toast:", error);
+    }
+  }
+
+  // Show progress toast with progress bar
+  function showProgressToast(docCount) {
+    try {
+      // Remove existing toast
+      const existingToast = document.getElementById("gd-toast");
+      if (existingToast && existingToast.parentNode) {
+        existingToast.parentNode.removeChild(existingToast);
+      }
+
+      // Create progress toast
+      const toast = document.createElement("div");
+      toast.id = "gd-toast";
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 2147483649;
+        background: #4285f4;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(100%);
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 280px;
+        max-width: 320px;
+      `;
+
+      toast.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+          <span>Inserting into ${docCount} document${
+        docCount > 1 ? "s" : ""
+      }...</span>
+        </div>
+        <div style="
+          width: 100%;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 2px;
+          overflow: hidden;
+        ">
+          <div id="gd-progress-bar" style="
+            width: 0%;
+            height: 100%;
+            background: white;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+          "></div>
+        </div>
+      `;
+
+      document.body.appendChild(toast);
+      currentToast = toast;
+
+      // Animate in
+      requestAnimationFrame(() => {
+        toast.style.transform = "translateX(0)";
+        toast.style.opacity = "1";
+      });
+
+      // Animate progress bar
+      setTimeout(() => {
+        const progressBar = toast.querySelector("#gd-progress-bar");
+        if (progressBar) {
+          progressBar.style.width = "100%";
+        }
+      }, 200);
+    } catch (error) {
+      console.error("Error showing progress toast:", error);
+    }
+  }
+
+  // Show success toast
+  function showSuccessToast(docCount) {
+    try {
+      const existingToast = document.getElementById("gd-toast");
+      if (existingToast && existingToast.parentNode) {
+        // Update existing toast to success
+        existingToast.style.background = "#34a853";
+        existingToast.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+            <span>✅ Inserted into ${docCount} document${
+          docCount > 1 ? "s" : ""
+        }!</span>
+          </div>
+        `;
+
+        // Auto hide after 2 seconds
+        setTimeout(() => {
+          if (existingToast && existingToast.parentNode) {
+            existingToast.style.transform = "translateX(100%)";
+            existingToast.style.opacity = "0";
+            setTimeout(() => {
+              if (existingToast && existingToast.parentNode) {
+                existingToast.parentNode.removeChild(existingToast);
+              }
+              if (currentToast === existingToast) {
+                currentToast = null;
+              }
+            }, 300);
+          }
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Error showing success toast:", error);
+    }
+  }
+
+  // Show error toast
+  function showErrorToast() {
+    try {
+      const existingToast = document.getElementById("gd-toast");
+      if (existingToast && existingToast.parentNode) {
+        // Update existing toast to error
+        existingToast.style.background = "#dc3545";
+        existingToast.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            <span>❌ Failed to insert screenshot</span>
+          </div>
+        `;
+
+        // Auto hide after 3 seconds
+        setTimeout(() => {
+          if (existingToast && existingToast.parentNode) {
+            existingToast.style.transform = "translateX(100%)";
+            existingToast.style.opacity = "0";
+            setTimeout(() => {
+              if (existingToast && existingToast.parentNode) {
+                existingToast.parentNode.removeChild(existingToast);
+              }
+              if (currentToast === existingToast) {
+                currentToast = null;
+              }
+            }, 300);
+          }
+        }, 3000);
+      }
+    } catch (error) {
+      console.error("Error showing error toast:", error);
     }
   }
 
@@ -527,7 +663,6 @@ if (window.gdocsScreenshotExtension) {
       const uploadBtn = toolbar.querySelector("#gd-upload");
       const handleUploadClick = async () => {
         const note = toolbar.querySelector("#gd-note").value;
-        const useBase64 = toolbar.querySelector("#gd-use-base64").checked;
         const targets = [
           ...toolbar.querySelectorAll("input[type=checkbox]:checked"),
         ]
@@ -542,53 +677,20 @@ if (window.gdocsScreenshotExtension) {
         // Save current usage for next time
         saveLastUsage(targets, note);
 
-        // Show processing state
-        uploadBtn.style.opacity = "0.7";
-        uploadBtn.style.cursor = "not-allowed";
+        // Hide toolbar immediately
+        cleanupAll();
 
-        if (useBase64) {
-          uploadBtn.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 6v6l4 2"/>
-          </svg>
-          Embedding...
-        `;
-        } else {
-          uploadBtn.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 6v6l4 2"/>
-          </svg>
-          Uploading to Drive...
-        `;
-        }
+        // Show progress toast
+        showProgressToast(targets.length);
 
         try {
-          await captureAndCrop(bbox, note, targets, useBase64);
+          await captureAndCrop(bbox, note, targets);
 
-          if (useBase64) {
-            showToast(
-              `⚡ Screenshot embedded directly into ${targets.length} document${
-                targets.length > 1 ? "s" : ""
-              }!`
-            );
-          } else {
-            showToast(
-              `✅ Screenshot uploaded to Google Drive and inserted into ${
-                targets.length
-              } document${targets.length > 1 ? "s" : ""}!`
-            );
-          }
-          cleanupAll();
+          // Show success toast
+          showSuccessToast(targets.length);
         } catch (error) {
           console.error("Processing failed:", error);
-          if (useBase64) {
-            showToast("❌ Failed to embed screenshot", 3000);
-          } else {
-            showToast("❌ Failed to upload screenshot to Google Drive", 3000);
-          }
-          cleanupAll();
+          showErrorToast();
         }
       };
 
@@ -632,7 +734,7 @@ if (window.gdocsScreenshotExtension) {
   }
 
   /* ------------------------------------------------------------------- */
-  function captureAndCrop(box, note, targets, useBase64) {
+  function captureAndCrop(box, note, targets) {
     return new Promise((resolve, reject) => {
       try {
         // Validate bounding box
@@ -760,7 +862,6 @@ if (window.gdocsScreenshotExtension) {
                   note,
                   targets,
                   dataUrl: cropped,
-                  useBase64,
                 },
                 (response) => {
                   if (chrome.runtime.lastError) {
@@ -815,15 +916,31 @@ if (window.gdocsScreenshotExtension) {
     });
   }
 
-  // Cleanup on page unload to prevent memory leaks
-  addTrackedEventListener(window, "beforeunload", cleanupAll);
-  addTrackedEventListener(document, "visibilitychange", () => {
-    if (document.hidden) {
-      cleanupAll();
-    }
-  });
+  // Cleanup on page unload to prevent memory leaks - using safer events
+  try {
+    addTrackedEventListener(window, "beforeunload", cleanupAll);
+  } catch (e) {
+    console.warn("beforeunload listener blocked:", e);
+  }
 
-  // Additional cleanup for page navigation
-  addTrackedEventListener(window, "pagehide", cleanupAll);
-  addTrackedEventListener(window, "unload", cleanupAll);
+  try {
+    addTrackedEventListener(document, "visibilitychange", () => {
+      if (document.hidden) {
+        cleanupAll();
+      }
+    });
+  } catch (e) {
+    console.warn("visibilitychange listener blocked:", e);
+  }
+
+  // Additional cleanup for page navigation - using safer alternatives
+  try {
+    addTrackedEventListener(window, "pagehide", cleanupAll);
+  } catch (e) {
+    console.warn("pagehide listener blocked:", e);
+  }
 } // End of window.gdocsScreenshotExtension initialization
+
+// Remove the problematic unload listener that causes permissions policy violation
+// The unload event is blocked by many sites' permissions policies
+// We rely on beforeunload, visibilitychange, and pagehide for cleanup instead
