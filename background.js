@@ -17,13 +17,19 @@ let uploadRetryCount = 0;
 let lastUploadRequest = 0;
 
 chrome.commands.onCommand.addListener((cmd) => {
+  console.log("🎯 Command received:", cmd); // Debug log
+
   if (cmd === "start_capture") {
+    console.log("🚀 Starting screenshot capture..."); // Debug log
+
     try {
       chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
         if (!tab) {
           console.error("No active tab found");
           return;
         }
+
+        console.log("📄 Active tab:", tab.url); // Debug log
 
         // Check if the tab supports content scripts (not chrome:// pages, etc.)
         if (
@@ -34,11 +40,13 @@ chrome.commands.onCommand.addListener((cmd) => {
           tab.url.startsWith("about:")
         ) {
           console.log(
-            "Cannot capture screenshot on this type of page:",
+            "❌ Cannot capture screenshot on this type of page:",
             tab.url
           );
           return;
         }
+
+        console.log("💬 Sending message to content script..."); // Debug log
 
         // First try to send message to existing content script
         chrome.tabs.sendMessage(
