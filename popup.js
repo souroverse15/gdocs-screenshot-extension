@@ -1,7 +1,20 @@
 /* Helpers -------------------------------------------------------------- */
 function parseDocId(url) {
-  // Google Docs URL pattern: https://docs.google.com/document/d/XXXXXXXXX/edit
-  const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  // Handle different Google Docs URL patterns:
+  // https://docs.google.com/document/d/DOCUMENT_ID/edit
+  // https://docs.google.com/document/d/DOCUMENT_ID/edit#gid=0
+  // https://docs.google.com/document/d/DOCUMENT_ID/
+  // https://docs.google.com/document/d/DOCUMENT_ID
+
+  if (!url || typeof url !== "string") {
+    return null;
+  }
+
+  // Remove any trailing whitespace and normalize the URL
+  url = url.trim();
+
+  // Match the document ID pattern
+  const match = url.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
   return match ? match[1] : null;
 }
 
@@ -99,20 +112,24 @@ function saveDocs(docs, cb) {
 /* Add ----------------------------------------------------------------- */
 function addDoc() {
   const labelInput = document.getElementById("docLabel");
-  const idInput = document.getElementById("docId");
+  const urlInput = document.getElementById("docUrl");
   const addBtn = document.getElementById("addDoc");
 
   const label = labelInput.value.trim();
-  const docId = idInput.value.trim();
+  const url = urlInput.value.trim();
 
-  if (!label || !docId) {
+  if (!label || !url) {
     showStatus("Please fill in both fields", true);
     return;
   }
 
-  // Simple validation for Google Doc ID (alphanumeric, dashes, underscores)
-  if (!/^[a-zA-Z0-9_-]+$/.test(docId)) {
-    showStatus("Invalid document ID format", true);
+  // Extract document ID from the URL
+  const docId = parseDocId(url);
+  if (!docId) {
+    showStatus(
+      "Invalid Google Docs URL. Please provide a valid Google Docs link.",
+      true
+    );
     return;
   }
 
@@ -134,7 +151,7 @@ function addDoc() {
 
       // Clear inputs
       labelInput.value = "";
-      idInput.value = "";
+      urlInput.value = "";
 
       // Show success
       showStatus(`Added "${label}" successfully!`);
@@ -231,8 +248,8 @@ function handleCapture() {
 
 /* Input validation and enhancement ----------------------------------- */
 function setupInputEnhancements() {
-  const urlInput = document.getElementById("doc-url");
-  const nameInput = document.getElementById("doc-name");
+  const urlInput = document.getElementById("docUrl");
+  const nameInput = document.getElementById("docLabel");
 
   // Auto-generate label from URL
   urlInput.addEventListener("input", () => {
@@ -278,16 +295,19 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("docLabel").addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      document.getElementById("docId").focus();
+      document.getElementById("docUrl").focus();
     }
   });
 
-  document.getElementById("docId").addEventListener("keypress", (e) => {
+  document.getElementById("docUrl").addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       addDoc();
     }
   });
+
+  // Setup input enhancements
+  setupInputEnhancements();
 
   // Load and render docs
   getDocs(renderDocs);
