@@ -118,9 +118,13 @@
       }
 
       .add-doc {
+        margin-top: 8px;
+      }
+
+      .add-doc-inputs {
         display: flex;
         gap: 8px;
-        margin-top: 8px;
+        margin-bottom: 8px;
       }
 
       .add-doc input {
@@ -263,9 +267,13 @@
         <div class="empty-state">No documents added yet</div>
       </div>
       <div class="add-doc">
-        <input type="text" id="docLabel" placeholder="Document name" />
-        <input type="text" id="docId" placeholder="Document ID" />
-        <button id="addDoc" class="btn btn-primary">Add</button>
+        <div class="add-doc-inputs">
+          <input type="text" id="docLabel" placeholder="Document name" />
+          <input type="text" id="docId" placeholder="Document ID" />
+        </div>
+        <button id="addDoc" class="btn btn-primary" style="width: 100%">
+          Add
+        </button>
       </div>
     </div>
 
